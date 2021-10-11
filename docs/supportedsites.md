@@ -364,7 +364,7 @@ Consider all sites to be NSFW unless otherwise known.
 <tr>
     <td>Inkbunny</td>
     <td>https://inkbunny.net/</td>
-    <td>Favorites, Posts, User Profiles</td>
+    <td>Favorites, Pools, Posts, User Profiles</td>
     <td>Supported</td>
 </tr>
 <tr>
@@ -670,8 +670,8 @@ Consider all sites to be NSFW unless otherwise known.
 <tr>
     <td>Seiso</td>
     <td>https://seiso.party/</td>
-    <td>Posts, User Profiles</td>
-    <td></td>
+    <td>Favorites, Posts, User Profiles</td>
+    <td>Supported</td>
 </tr>
 <tr>
     <td>Sen Manga</td>
