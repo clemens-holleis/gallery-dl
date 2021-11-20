@@ -8,14 +8,20 @@
 
 """String formatters"""
 
+import os
 import json
 import string
 import _string
+import datetime
 import operator
 from . import text, util
 
 _CACHE = {}
 _CONVERSIONS = None
+_GLOBALS = {
+    "_env": lambda: os.environ,
+    "_now": datetime.datetime.now,
+}
 
 
 def parse(format_string, default=None):
@@ -58,7 +64,7 @@ class StringFormatter():
     - "j". calls json.dumps
     - "t": calls str.strip
     - "d": calls text.parse_timestamp
-    - "U": calls urllib.parse.unquote
+    - "U": calls urllib.parse.unescape
     - "S": calls util.to_string()
     - "T": calls util.to_timestamü()
     - Example: {f!l} -> "example"; {f!u} -> "EXAMPLE"
@@ -125,6 +131,8 @@ class StringFormatter():
             ], fmt)
         else:
             key, funcs = parse_field_name(field_name)
+            if key in _GLOBALS:
+                return self._apply_globals(_GLOBALS[key], funcs, fmt)
             if funcs:
                 return self._apply(key, funcs, fmt)
             return self._apply_simple(key, fmt)
@@ -133,6 +141,17 @@ class StringFormatter():
         def wrap(kwdict):
             try:
                 obj = kwdict[key]
+                for func in funcs:
+                    obj = func(obj)
+            except Exception:
+                obj = self.default
+            return fmt(obj)
+        return wrap
+
+    def _apply_globals(self, gobj, funcs, fmt):
+        def wrap(_):
+            try:
+                obj = gobj()
                 for func in funcs:
                     obj = func(obj)
             except Exception:
@@ -149,7 +168,7 @@ class StringFormatter():
         def wrap(kwdict):
             for key, funcs in lst:
                 try:
-                    obj = kwdict[key]
+                    obj = _GLOBALS[key]() if key in _GLOBALS else kwdict[key]
                     for func in funcs:
                         obj = func(obj)
                     if obj:

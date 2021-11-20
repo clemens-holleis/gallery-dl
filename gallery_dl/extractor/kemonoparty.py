@@ -14,7 +14,8 @@ from ..cache import cache
 import itertools
 import re
 
-BASE_PATTERN = r"(?:https?://)?kemono\.party/([^/?#]+)/user/([^/?#]+)"
+BASE_PATTERN = r"(?:https?://)?kemono\.party"
+USER_PATTERN = BASE_PATTERN + r"/([^/?#]+)/user/([^/?#]+)"
 
 
 class KemonopartyExtractor(Extractor):
@@ -29,9 +30,12 @@ class KemonopartyExtractor(Extractor):
     def items(self):
         self._prepare_ddosguard_cookies()
 
-        find_inline = re.compile(r'src="(/inline/[^"]+)').findall
-        skip_service = \
-            "patreon" if self.config("patreon-skip-file", True) else None
+        self._find_inline = re.compile(
+            r'src="(?:https?://kemono\.party)?(/inline/[^"]+'
+            r'|/[0-9a-f]{2}/[0-9a-f]{2}/[0-9a-f]{64}\.[^"]+)').findall
+        find_hash = re.compile("/[0-9a-f]{2}/[0-9a-f]{2}/([0-9a-f]{64})").match
+        generators = self._build_file_generators(self.config("files"))
+        comments = self.config("comments")
 
         if self.config("metadata"):
             username = text.unescape(text.extract(
@@ -47,29 +51,34 @@ class KemonopartyExtractor(Extractor):
 
         for post in posts:
 
-            files = []
-            append = files.append
-            file = post["file"]
-
-            if file:
-                file["type"] = "file"
-                if post["service"] != skip_service or not post["attachments"]:
-                    append(file)
-            for attachment in post["attachments"]:
-                attachment["type"] = "attachment"
-                append(attachment)
-            for path in find_inline(post["content"] or ""):
-                append({"path": path, "name": path, "type": "inline"})
-
             post["date"] = text.parse_datetime(
-                post["published"], "%a, %d %b %Y %H:%M:%S %Z")
+                post["published"] or post["added"],
+                "%a, %d %b %Y %H:%M:%S %Z")
             if username:
                 post["username"] = username
+            if comments:
+                post["comments"] = self._extract_comments(post)
             yield Message.Directory, post
 
-            for post["num"], file in enumerate(files, 1):
-                post["type"] = file["type"]
+            hashes = set()
+            post["num"] = 0
+            for file in itertools.chain.from_iterable(
+                    g(post) for g in generators):
                 url = file["path"]
+
+                match = find_hash(url)
+                if match:
+                    post["hash"] = hash = match.group(1)
+                    if hash in hashes:
+                        self.log.debug("Skipping %s (duplicate)", url)
+                        continue
+                    hashes.add(hash)
+                else:
+                    post["hash"] = ""
+
+                post["type"] = file["type"]
+                post["num"] += 1
+
                 if url[0] == "/":
                     url = self.root + "/data" + url
                 elif url.startswith("https://kemono.party"):
@@ -97,11 +106,57 @@ class KemonopartyExtractor(Extractor):
 
         return {c.name: c.value for c in response.history[0].cookies}
 
+    def _postfile(self, post):
+        file = post["file"]
+        if not file:
+            return ()
+        file["type"] = "file"
+        return (file,)
+
+    def _attachments(self, post):
+        for attachment in post["attachments"]:
+            attachment["type"] = "attachment"
+        return post["attachments"]
+
+    def _inline(self, post):
+        for path in self._find_inline(post["content"] or ""):
+            yield {"path": path, "name": path, "type": "inline"}
+
+    def _build_file_generators(self, filetypes):
+        if filetypes is None:
+            return (self._postfile, self._attachments, self._inline)
+        genmap = {
+            "postfile"   : self._postfile,
+            "attachments": self._attachments,
+            "inline"     : self._inline,
+        }
+        if isinstance(filetypes, str):
+            filetypes = filetypes.split(",")
+        return [genmap[ft] for ft in filetypes]
+
+    def _extract_comments(self, post):
+        url = "{}/{}/user/{}/post/{}".format(
+            self.root, post["service"], post["user"], post["id"])
+        page = self.request(url).text
+
+        comments = []
+        for comment in text.extract_iter(page, "<article", "</article>"):
+            extr = text.extract_from(comment)
+            cid = extr('id="', '"')
+            comments.append({
+                "id"  : cid,
+                "user": extr('href="#' + cid + '"', '</').strip(" \n\r>"),
+                "body": extr(
+                    '<section class="comment__body">', '</section>').strip(),
+                "date": extr('datetime="', '"'),
+            })
+        return comments
+
 
 class KemonopartyUserExtractor(KemonopartyExtractor):
     """Extractor for all posts from a kemono.party user listing"""
     subcategory = "user"
-    pattern = BASE_PATTERN + r"/?(?:\?o=(\d+))?(?:$|[?#])"
+    pattern = USER_PATTERN + r"/?(?:\?o=(\d+))?(?:$|[?#])"
     test = (
         ("https://kemono.party/fanbox/user/6993449", {
             "range": "1-25",
@@ -138,11 +193,11 @@ class KemonopartyUserExtractor(KemonopartyExtractor):
 class KemonopartyPostExtractor(KemonopartyExtractor):
     """Extractor for a single kemono.party post"""
     subcategory = "post"
-    pattern = BASE_PATTERN + r"/post/([^/?#]+)"
+    pattern = USER_PATTERN + r"/post/([^/?#]+)"
     test = (
         ("https://kemono.party/fanbox/user/6993449/post/506575", {
-            "pattern": r"https://kemono\.party/data/files/fanbox"
-                       r"/6993449/506575/P058kDFYus7DbqAkGlfWTlOr\.jpeg",
+            "pattern": r"https://kemono.party/data/21/0f"
+                       r"/210f35388e28bbcf756db18dd516e2d82ce75[0-9a-f]+\.jpg",
             "keyword": {
                 "added": "Wed, 06 May 2020 20:28:02 GMT",
                 "content": str,
@@ -151,6 +206,8 @@ class KemonopartyPostExtractor(KemonopartyExtractor):
                 "embed": dict,
                 "extension": "jpeg",
                 "filename": "P058kDFYus7DbqAkGlfWTlOr",
+                "hash": "210f35388e28bbcf756db18dd516e2d8"
+                        "2ce758e0d32881eeee76d43e1716d382",
                 "id": "506575",
                 "num": 1,
                 "published": "Sun, 11 Aug 2019 02:09:04 GMT",
@@ -164,23 +221,25 @@ class KemonopartyPostExtractor(KemonopartyExtractor):
         }),
         # inline image (#1286)
         ("https://kemono.party/fanbox/user/7356311/post/802343", {
-            "pattern": r"https://kemono\.party/data/inline/fanbox"
-                       r"/uaozO4Yga6ydkGIJFAQDixfE\.jpeg",
+            "pattern": r"https://kemono\.party/data/47/b5/47b5c014ecdcfabdf2c8"
+                       r"5eec53f1133a76336997ae8596f332e97d956a460ad2\.jpg",
+            "keyword": {"hash": "47b5c014ecdcfabdf2c85eec53f1133a"
+                                "76336997ae8596f332e97d956a460ad2"},
         }),
         # kemono.party -> data.kemono.party
         ("https://kemono.party/gumroad/user/trylsc/post/IURjT", {
-            "pattern": r"https://kemono\.party/data/(file|attachment)s"
-                       r"/gumroad/trylsc/IURjT/",
+            "pattern": r"https://kemono\.party/data/("
+                       r"files/gumroad/trylsc/IURjT/reward8\.jpg|"
+                       r"c6/04/c6048f5067fd9dbfa7a8be565ac194efdfb6e4.+\.zip)",
         }),
         # username (#1548, #1652)
         ("https://kemono.party/gumroad/user/3252870377455/post/aJnAH", {
             "options": (("metadata", True),),
             "keyword": {"username": "Kudalyn's Creations"},
         }),
-        # skip patreon main file (#1667, #1689)
+        # skip patreon duplicates
         ("https://kemono.party/patreon/user/4158582/post/32099982", {
             "count": 2,
-            "keyword": {"type": "attachment"},
         }),
         ("https://kemono.party/subscribestar/user/alcorart/post/184330"),
     )
@@ -197,10 +256,128 @@ class KemonopartyPostExtractor(KemonopartyExtractor):
         return (posts[0],) if len(posts) > 1 else posts
 
 
+class KemonopartyDiscordExtractor(KemonopartyExtractor):
+    """Extractor for kemono.party discord servers"""
+    subcategory = "discord"
+    directory_fmt = ("{category}", "discord", "{server}",
+                     "{channel_name|channel}")
+    filename_fmt = "{id}_{num:>02}_{filename}.{extension}"
+    archive_fmt = "discord_{server}_{id}_{num}"
+    pattern = BASE_PATTERN + r"/discord/server/(\d+)(?:/channel/(\d+))?#(.*)"
+    test = (
+        (("https://kemono.party/discord"
+          "/server/488668827274444803#finish-work"), {
+            "count": 4,
+            "keyword": {"channel_name": "finish-work"},
+        }),
+        (("https://kemono.party/discord"
+          "/server/256559665620451329/channel/462437519519383555#"), {
+            "pattern": r"https://kemono\.party/data/attachments/discord"
+                       r"/256559665620451329/\d+/\d+/.+",
+            "count": ">= 2",
+        }),
+        # 'inline' files
+        (("https://kemono.party/discord"
+          "/server/315262215055736843/channel/315262215055736843#general"), {
+            "pattern": r"https://cdn\.discordapp\.com/attachments/\d+/\d+/.+$",
+            "range": "1-5",
+            "options": (("image-filter", "type == 'inline'"),),
+        }),
+    )
+
+    def __init__(self, match):
+        KemonopartyExtractor.__init__(self, match)
+        self.server, self.channel, self.channel_name = match.groups()
+
+    def items(self):
+        self._prepare_ddosguard_cookies()
+
+        find_inline = re.compile(
+            r"https?://(?:cdn\.discordapp.com|media\.discordapp\.net)"
+            r"(/[A-Za-z0-9-._~:/?#\[\]@!$&'()*+,;%=]+)").findall
+
+        posts = self.posts()
+        max_posts = self.config("max-posts")
+        if max_posts:
+            posts = itertools.islice(posts, max_posts)
+
+        for post in posts:
+            files = []
+            append = files.append
+            for attachment in post["attachments"]:
+                attachment["type"] = "attachment"
+                append(attachment)
+            for path in find_inline(post["content"] or ""):
+                append({"path": "https://cdn.discordapp.com" + path,
+                        "name": path, "type": "inline"})
+
+            post["channel_name"] = self.channel_name
+            post["date"] = text.parse_datetime(
+                post["published"], "%a, %d %b %Y %H:%M:%S %Z")
+            yield Message.Directory, post
+
+            for post["num"], file in enumerate(files, 1):
+                post["type"] = file["type"]
+                url = file["path"]
+                if url[0] == "/":
+                    url = self.root + "/data" + url
+                elif url.startswith("https://kemono.party"):
+                    url = self.root + "/data" + url[20:]
+
+                text.nameext_from_url(file["name"], post)
+                yield Message.Url, url, post
+
+    def posts(self):
+        if self.channel is None:
+            url = "{}/api/discord/channels/lookup?q={}".format(
+                self.root, self.server)
+            for channel in self.request(url).json():
+                if channel["name"] == self.channel_name:
+                    self.channel = channel["id"]
+                    break
+            else:
+                raise exception.NotFoundError("channel")
+
+        url = "{}/api/discord/channel/{}".format(self.root, self.channel)
+        params = {"skip": 0}
+
+        while True:
+            posts = self.request(url, params=params).json()
+            yield from posts
+
+            if len(posts) < 25:
+                break
+            params["skip"] += 25
+
+
+class KemonopartyDiscordServerExtractor(KemonopartyExtractor):
+    subcategory = "discord-server"
+    pattern = BASE_PATTERN + r"/discord/server/(\d+)$"
+    test = ("https://kemono.party/discord/server/488668827274444803", {
+        "pattern": KemonopartyDiscordExtractor.pattern,
+        "count": 13,
+    })
+
+    def __init__(self, match):
+        KemonopartyExtractor.__init__(self, match)
+        self.server = match.group(1)
+
+    def items(self):
+        url = "{}/api/discord/channels/lookup?q={}".format(
+            self.root, self.server)
+        channels = self.request(url).json()
+
+        for channel in channels:
+            url = "{}/discord/server/{}/channel/{}#{}".format(
+                self.root, self.server, channel["id"], channel["name"])
+            channel["_extractor"] = KemonopartyDiscordExtractor
+            yield Message.Queue, url, channel
+
+
 class KemonopartyFavoriteExtractor(KemonopartyExtractor):
     """Extractor for kemono.party favorites"""
     subcategory = "favorite"
-    pattern = r"(?:https?://)?kemono\.party/favorites"
+    pattern = BASE_PATTERN + r"/favorites"
     test = ("https://kemono.party/favorites", {
         "pattern": KemonopartyUserExtractor.pattern,
         "url": "f4b5b796979bcba824af84206578c79101c7f0e1",

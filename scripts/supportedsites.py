@@ -149,6 +149,10 @@ SUBCATEGORY_MAP = {
         "saved": "Saved Posts",
         "tagged": "Tagged Posts",
     },
+    "kemonoparty": {
+        "discord": "Discord Servers",
+        "discord-server": "",
+    },
     "mangadex": {
         "feed" : "Followed Feed",
     },
@@ -164,6 +168,7 @@ SUBCATEGORY_MAP = {
     "pixiv": {
         "me"  : "pixiv.me Links",
         "pixivision": "pixivision",
+        "sketch": "Sketch",
         "work": "individual Images",
     },
     "sankaku": {
