@@ -36,11 +36,14 @@ class TwitterExtractor(Extractor):
         self.retweets = self.config("retweets", False)
         self.replies = self.config("replies", True)
         self.twitpic = self.config("twitpic", False)
+        self.pinned = self.config("pinned", False)
         self.quoted = self.config("quoted", False)
         self.videos = self.config("videos", True)
         self.cards = self.config("cards", False)
         self._user_cache = {}
+        self._init_sizes()
 
+    def _init_sizes(self):
         size = self.config("size")
         if size is None:
             self._size_image = "orig"
@@ -579,13 +582,17 @@ class TwitterImageExtractor(Extractor):
     subcategory = "image"
     pattern = r"https?://pbs\.twimg\.com/media/([\w-]+)(?:\?format=|\.)(\w+)"
     test = (
-        ("https://pbs.twimg.com/media/EqcpviCVoAAG-QG?format=jpg%name=orig"),
+        ("https://pbs.twimg.com/media/EqcpviCVoAAG-QG?format=jpg&name=orig", {
+            "options": (("size", "4096x4096,orig"),),
+            "url": "cb3042a6f6826923da98f0d2b66c427e9385114c",
+        }),
         ("https://pbs.twimg.com/media/EqcpviCVoAAG-QG.jpg:orig"),
     )
 
     def __init__(self, match):
         Extractor.__init__(self, match)
         self.id, self.fmt = match.groups()
+        TwitterExtractor._init_sizes(self)
 
     def items(self):
         base = "https://pbs.twimg.com/media/{}?format={}&name=".format(
@@ -594,11 +601,11 @@ class TwitterImageExtractor(Extractor):
         data = {
             "filename": self.id,
             "extension": self.fmt,
-            "_fallback": TwitterExtractor._image_fallback(base),
+            "_fallback": TwitterExtractor._image_fallback(self, base),
         }
 
         yield Message.Directory, data
-        yield Message.Url, base + "orig", data
+        yield Message.Url, base + self._size_image, data
 
 
 class TwitterAPI():
@@ -792,16 +799,21 @@ class TwitterAPI():
             data = response.json()
             if "errors" in data:
                 try:
-                    msg = ", ".join(
-                        '"' + error["message"] + '"'
-                        for error in data["errors"]
-                    )
+                    errors, warnings = [], []
+                    for error in data["errors"]:
+                        if error.get("kind") == "NonFatal":
+                            warnings.append(error["message"])
+                        else:
+                            errors.append(error["message"])
+                    errors = ", ".join(errors)
                 except Exception:
-                    msg = data["errors"]
-                if msg and response.status_code < 400:
-                    raise exception.StopExtraction(msg)
+                    errors = data["errors"]
+                if warnings:
+                    self.extractor.log.warning(", ".join(warnings))
+                if errors and response.status_code < 400:
+                    raise exception.StopExtraction(errors)
             else:
-                msg = ""
+                errors = ""
 
             if response.status_code < 400:
                 # success
@@ -815,7 +827,7 @@ class TwitterAPI():
                 continue
 
             if response.status_code == 401 and \
-                    "have been blocked from viewing" in msg:
+                    "have been blocked from viewing" in errors:
                 # account blocked
                 extr = self.extractor
                 if self.headers["x-twitter-auth-type"] and \
@@ -832,13 +844,13 @@ class TwitterAPI():
 
             # error
             raise exception.StopExtraction(
-                "%s %s (%s)", response.status_code, response.reason, msg)
+                "%s %s (%s)", response.status_code, response.reason, errors)
 
     def _pagination(self, endpoint, params=None):
         if params is None:
             params = self.params.copy()
         original_retweets = (self.extractor.retweets == "original")
-        pinned_tweet = True
+        pinned_tweet = self.extractor.pinned
 
         while True:
             cursor = tweet = None

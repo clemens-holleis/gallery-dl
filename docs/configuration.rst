@@ -373,6 +373,7 @@ Description
     * ``mangoxo``
     * ``pillowfort``
     * ``sankaku``
+    * ``seisoparty``
     * ``subscribestar``
     * ``tapas``
     * ``tsumino``
@@ -1052,17 +1053,6 @@ Description
     everything else (archives, etc.).
 
 
-extractor.deviantart.quality
-----------------------------
-Type
-    ``integer``
-Default
-    ``100``
-Description
-    JPEG quality level of newer images for which
-    an original file download is not available.
-
-
 extractor.deviantart.refresh-token
 ----------------------------------
 Type
@@ -1236,16 +1226,20 @@ Description
 extractor.gfycat.format
 -----------------------
 Type
-    ``string``
+    * ``list`` of ``strings``
+    * ``string``
 Default
-    ``"mp4"``
+    ``["mp4", "webm", "mobile", "gif"]``
 Description
-    The name of the preferred animation format, which can be one of
-    ``"mp4"``, ``"webm"``, ``"gif"``, ``"webp"``, or ``"mjpg"``.
+    List of names of the preferred animation format, which can be
+    ``"mp4"``, ``"webm"``, ``"mobile"``, ``"gif"``, or ``"webp"``.
 
-    If the selected format is not available, ``"mp4"``, ``"webm"``
-    and ``"gif"`` (in that order) will be tried instead, until an
-    available format is found.
+    If a selected format is not available, the next one in the list will be
+    tried until an available format is found.
+
+    If the format is given as ``string``, it will be extended with
+    ``["mp4", "webm", "mobile", "gif"]``. Use a list with one element to
+    restrict it to only one possible format.
 
 
 extractor.hentaifoundry.include
@@ -1334,6 +1328,28 @@ Description
     Download video files.
 
 
+extractor.kemonoparty.comments
+------------------------------
+Type
+    ``bool``
+Default
+    ``false``
+Description
+    Extract ``comments`` metadata.
+
+
+extractor.kemonoparty.files
+---------------------------
+Type
+    ``list`` of ``strings``
+Default
+    ``["postfile", "attachments", "inline"]``
+Description
+    Determines the type and order of files to be downloaded.
+
+    Available types are ``postfile``, ``attachments``, and ``inline``.
+
+
 extractor.kemonoparty.max-posts
 -------------------------------
 Type
@@ -1352,16 +1368,6 @@ Default
     ``false``
 Description
     Extract ``username`` metadata
-
-
-extractor.kemonoparty.patreon-skip-file
----------------------------------------
-Type
-    ``bool``
-Default
-    ``true``
-Description
-    Skip main files in Patreon posts to avoid duplicates.
 
 
 extractor.khinsider.format
@@ -1574,6 +1580,19 @@ Description
     of the port specified here. You'll have to manually adjust the
     port number in your browser's address bar when using a different
     port than the default.
+
+
+extractor.patreon.files
+-----------------------
+Type
+    ``list`` of ``strings``
+Default
+    ``["images", "attachments", "postfile", "content"]``
+Description
+    Determines the type and order of files to be downloaded.
+
+    Available types are
+    ``postfile``, ``images``, ``attachments``, and ``content``.
 
 
 extractor.photobucket.subalbums
@@ -1850,16 +1869,20 @@ Description
 extractor.redgifs.format
 ------------------------
 Type
-    ``string``
+    * ``list`` of ``strings``
+    * ``string``
 Default
-    ``"mp4"``
+    ``["hd", "sd", "gif"]``
 Description
-    The name of the preferred format, which can be one of
-    ``"mp4"``, ``"webm"``, ``"gif"``, ``"webp"``, ``"mobile"``, or ``"mini"``.
+    List of names of the preferred animation format, which can be
+    ``"hd"``, ``"sd"``, `"gif"``, `"vthumbnail"``, `"thumbnail"``, or ``"poster"``.
 
-    If the selected format is not available, ``"mp4"``, ``"webm"``
-    and ``"gif"`` (in that order) will be tried instead, until an
-    available format is found.
+    If a selected format is not available, the next one in the list will be
+    tried until an available format is found.
+
+    If the format is given as ``string``, it will be extended with
+    ``["hd", "sd", "gif"]``. Use a list with one element to
+    restrict it to only one possible format.
 
 
 extractor.sankakucomplex.embeds
@@ -2007,6 +2030,16 @@ Default
     ``false``
 Description
     Logout and retry as guest when access to another user's Tweets is blocked.
+
+
+extractor.twitter.pinned
+------------------------
+Type
+    ``bool``
+Default
+    ``false``
+Description
+    Fetch media from pinned Tweets.
 
 
 extractor.twitter.quoted
@@ -2255,6 +2288,28 @@ Description
 
     All available options can be found in `youtube-dl's docstrings
     <https://github.com/ytdl-org/youtube-dl/blob/master/youtube_dl/YoutubeDL.py#L138-L318>`__.
+
+
+extractor.ytdl.cmdline-args
+---------------------------
+Type
+    * ``string``
+    * ``list`` of ``strings``
+Example
+    * ``"--quiet --write-sub --merge-output-format mkv"``
+    * ``["--quiet", "--write-sub", "--merge-output-format", "mkv"]``
+Description
+    Additional options specified as youtube-dl command-line arguments.
+
+
+extractor.ytdl.config-file
+--------------------------
+Type
+    |Path|_
+Example
+    ``"~/.config/youtube-dl/config"``
+Description
+    Location of a youtube-dl configuration file to load options from.
 
 
 extractor.[booru].tags
@@ -2542,6 +2597,28 @@ Description
 
     All available options can be found in `youtube-dl's docstrings
     <https://github.com/ytdl-org/youtube-dl/blob/master/youtube_dl/YoutubeDL.py#L138-L318>`__.
+
+
+downloader.ytdl.cmdline-args
+----------------------------
+Type
+    * ``string``
+    * ``list`` of ``strings``
+Example
+    * ``"--quiet --write-sub --merge-output-format mkv"``
+    * ``["--quiet", "--write-sub", "--merge-output-format", "mkv"]``
+Description
+    Additional options specified as youtube-dl command-line arguments.
+
+
+downloader.ytdl.config-file
+---------------------------
+Type
+    |Path|_
+Example
+    ``"~/.config/youtube-dl/config"``
+Description
+    Location of a youtube-dl configuration file to load options from.
 
 
 
