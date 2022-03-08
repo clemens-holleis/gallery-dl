@@ -22,14 +22,16 @@ class FantiaExtractor(Extractor):
     def items(self):
 
         if self._warning:
-            if "_session_id" not in self.session.cookies:
+            if not self._check_cookies(("_session_id",)):
                 self.log.warning("no '_session_id' cookie set")
             FantiaExtractor._warning = False
 
         for post_id in self.posts():
             full_response, post = self._get_post_data(post_id)
             yield Message.Directory, post
+            post["num"] = 0
             for url, url_data in self._get_urls_from_post(full_response, post):
+                post["num"] += 1
                 fname = url_data["content_filename"] or url
                 text.nameext_from_url(fname, url_data)
                 url_data["file_url"] = url

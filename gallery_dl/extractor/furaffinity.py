@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2020-2021 Mike Fährmann
+# Copyright 2020-2022 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -22,6 +22,7 @@ class FuraffinityExtractor(Extractor):
     archive_fmt = "{id}"
     cookiedomain = ".furaffinity.net"
     root = "https://www.furaffinity.net"
+    _warning = True
 
     def __init__(self, match):
         Extractor.__init__(self, match)
@@ -31,7 +32,19 @@ class FuraffinityExtractor(Extractor):
         if self.config("descriptions") == "html":
             self._process_description = str.strip
 
+        layout = self.config("layout")
+        if layout and layout != "auto":
+            self._new_layout = False if layout == "old" else True
+        else:
+            self._new_layout = None
+
     def items(self):
+
+        if self._warning:
+            if not self._check_cookies(("a", "b")):
+                self.log.warning("no 'a' and 'b' session cookies set")
+            FuraffinityExtractor._warning = False
+
         external = self.config("external", False)
         metadata = self.metadata()
         for post_id in util.advance(self.posts(), self.offset):
@@ -57,8 +70,11 @@ class FuraffinityExtractor(Extractor):
     def _parse_post(self, post_id):
         url = "{}/view/{}/".format(self.root, post_id)
         extr = text.extract_from(self.request(url).text)
-        path = extr('href="//d', '"')
 
+        if self._new_layout is None:
+            self._new_layout = ("http-equiv=" not in extr("<meta ", ">"))
+
+        path = extr('href="//d', '"')
         if not path:
             self.log.warning(
                 "Unable to download post %s (\"%s\")",
@@ -77,10 +93,9 @@ class FuraffinityExtractor(Extractor):
             "url": "https://d" + path,
         })
 
-        tags = extr('class="tags-row">', '</section>')
-        if tags:
-            # new site layout
-            data["tags"] = text.split_html(tags)
+        if self._new_layout:
+            data["tags"] = text.split_html(extr(
+                'class="tags-row">', '</section>'))
             data["title"] = text.unescape(extr("<h2><p>", "</p></h2>"))
             data["artist"] = extr("<strong>", "<")
             data["_description"] = extr('class="section-body">', '</div>')
@@ -298,6 +313,25 @@ class FuraffinityPostExtractor(FuraffinityExtractor):
             "pattern": r"https://d\d*\.f(uraffinity|acdn)\.net/"
                        r"|http://www\.postybirb\.com",
             "count": 2,
+        }),
+        # no tags (#2277)
+        ("https://www.furaffinity.net/view/45331225/", {
+            "keyword": {
+                "artist": "Kota_Remminders",
+                "artist_url": "kotaremminders",
+                "date": "dt:2022-01-03 17:49:33",
+                "fa_category": "Adoptables",
+                "filename": "1641232173.kotaremminders_chidopts1",
+                "gender": "Any",
+                "height": 905,
+                "id": 45331225,
+                "rating": "General",
+                "species": "Unspecified / Any",
+                "tags": [],
+                "theme": "All",
+                "title": "REMINDER",
+                "width": 1280,
+            },
         }),
         ("https://furaffinity.net/view/21835115/"),
         ("https://sfw.furaffinity.net/view/21835115/"),

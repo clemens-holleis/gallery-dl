@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2015-2021 Mike Fährmann
+# Copyright 2015-2022 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -31,7 +31,6 @@ modules = [
     "desktopography",
     "deviantart",
     "dynastyscans",
-    "e621",
     "erome",
     "exhentai",
     "fallenangels",
@@ -68,7 +67,10 @@ modules = [
     "keenspot",
     "kemonoparty",
     "khinsider",
+    "kissgoddess",
+    "kohlchan",
     "komikcast",
+    "lightroom",
     "lineblog",
     "livedoor",
     "luscious",
@@ -80,6 +82,7 @@ modules = [
     "mangapark",
     "mangasee",
     "mangoxo",
+    "mememuseum",
     "myhentaigallery",
     "myportfolio",
     "naver",
@@ -108,6 +111,7 @@ modules = [
     "readcomiconline",
     "reddit",
     "redgifs",
+    "rule34us",
     "sankaku",
     "sankakucomplex",
     "seiga",
@@ -121,15 +125,18 @@ modules = [
     "speakerdeck",
     "subscribestar",
     "tapas",
+    "toyhouse",
     "tsumino",
     "tumblr",
     "tumblrgallery",
+    "twibooru",
     "twitter",
     "unsplash",
     "vanillarock",
     "vk",
     "vsco",
     "wallhaven",
+    "wallpapercave",
     "warosu",
     "weasyl",
     "webtoons",
@@ -144,12 +151,14 @@ modules = [
     "foolslide",
     "mastodon",
     "shopify",
+    "lolisafe",
     "imagehosts",
     "directlink",
     "recursive",
     "oauth",
     "test",
     "ytdl",
+    "generic",
 ]
 
 

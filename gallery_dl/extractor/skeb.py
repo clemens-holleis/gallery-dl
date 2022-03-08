@@ -21,10 +21,12 @@ class SkebExtractor(Extractor):
     def __init__(self, match):
         Extractor.__init__(self, match)
         self.user_name = match.group(1)
+        self.thumbnails = self.config("thumbnails", False)
+        self.sent_requests = self.config("sent-requests", False)
 
     def items(self):
-        for post_num in self.posts():
-            response, post = self._get_post_data(post_num)
+        for user_name, post_num in self.posts():
+            response, post = self._get_post_data(user_name, post_num)
             yield Message.Directory, post
             for data in self._get_urls_from_post(response, post):
                 url = data["file_url"]
@@ -37,24 +39,33 @@ class SkebExtractor(Extractor):
         url = "{}/api/users/{}/works".format(self.root, self.user_name)
         params = {"role": "creator", "sort": "date", "offset": 0}
         headers = {"Referer": self.root, "Authorization": "Bearer null"}
+        do_requests = self.sent_requests
 
         while True:
             posts = self.request(url, params=params, headers=headers).json()
 
             for post in posts:
                 post_num = post["path"].rpartition("/")[2]
+                user_name = post["path"].split("/")[1][1:]
                 if post["private"]:
-                    self.log.debug("Skipping %s (private)", post_num)
+                    self.log.debug("Skipping @%s/%s (private)",
+                                   user_name, post_num)
                     continue
-                yield post_num
+                yield user_name, post_num
 
             if len(posts) < 30:
-                return
+                if do_requests:
+                    params["offset"] = 0
+                    params['role'] = "client"
+                    do_requests = False
+                    continue
+                else:
+                    return
             params["offset"] += 30
 
-    def _get_post_data(self, post_num):
+    def _get_post_data(self, user_name, post_num):
         url = "{}/api/users/{}/works/{}".format(
-            self.root, self.user_name, post_num)
+            self.root, user_name, post_num)
         headers = {"Referer": self.root, "Authorization": "Bearer null"}
         resp = self.request(url, headers=headers).json()
         creator = resp["creator"]
@@ -94,7 +105,7 @@ class SkebExtractor(Extractor):
         return resp, post
 
     def _get_urls_from_post(self, resp, post):
-        if "og_image_url" in resp:
+        if self.thumbnails and "og_image_url" in resp:
             post["content_category"] = "thumb"
             post["file_id"] = "thumb"
             post["file_url"] = resp["og_image_url"]
@@ -129,7 +140,7 @@ class SkebPostExtractor(SkebExtractor):
         self.post_num = match.group(2)
 
     def posts(self):
-        return (self.post_num,)
+        return (self.user_name, self.post_num,)
 
 
 class SkebUserExtractor(SkebExtractor):

@@ -20,6 +20,7 @@ CATEGORY_MAP = {
     "archiveofsins"  : "Archive of Sins",
     "artstation"     : "ArtStation",
     "aryion"         : "Eka's Portal",
+    "atfbooru"       : "ATFBooru",
     "b4k"            : "arch.b4k.co",
     "baraag"         : "baraag",
     "bbc"            : "BBC",
@@ -54,8 +55,10 @@ CATEGORY_MAP = {
     "imagechest"     : "ImageChest",
     "imgth"          : "imgth",
     "imgur"          : "imgur",
+    "joyreactor"     : "JoyReactor",
     "kabeuchi"       : "かべうち",
     "kireicake"      : "Kirei Cake",
+    "kissgoddess"    : "Kiss Goddess",
     "lineblog"       : "LINE BLOG",
     "livedoor"       : "livedoor Blog",
     "omgmiamiswimwear": "Omg Miami Swimwear",
@@ -78,11 +81,13 @@ CATEGORY_MAP = {
     "paheal"         : "rule #34",
     "photovogue"     : "PhotoVogue",
     "pornimagesxxx"  : "Porn Image",
+    "pornreactor"    : "PornReactor",
     "powermanga"     : "PowerManga",
     "readcomiconline": "Read Comic Online",
     "rbt"            : "RebeccaBlackTech",
     "redgifs"        : "RedGIFs",
     "rule34"         : "Rule 34",
+    "rule34us"       : "Rule 34",
     "sankaku"        : "Sankaku Channel",
     "sankakucomplex" : "Sankaku Complex",
     "seiga"          : "Niconico Seiga",
@@ -97,6 +102,7 @@ CATEGORY_MAP = {
     "speakerdeck"    : "Speaker Deck",
     "subscribestar"  : "SubscribeStar",
     "tbib"           : "The Big ImageBoard",
+    "thatpervert"    : "ThatPervert",
     "thebarchive"    : "The /b/ Archive",
     "thecollection"  : "The /co/llection",
     "theloudbooru"   : "The Loud Booru",
@@ -106,20 +112,25 @@ CATEGORY_MAP = {
     "vk"             : "VK",
     "vsco"           : "VSCO",
     "wakarimasen"    : "Wakarimasen Archive",
+    "wallpapercave"  : "Wallpaper Cave",
     "webtoons"       : "Webtoon",
     "wikiart"        : "WikiArt.org",
     "xhamster"       : "xHamster",
     "xvideos"        : "XVideos",
     "yandere"        : "yande.re",
+    "zzzz"           : "ZzZz",
 }
 
 SUBCATEGORY_MAP = {
+    "art"    : "Art",
+    "audio"  : "Audio",
     "doujin" : "Doujin",
     "gallery": "Galleries",
     "image"  : "individual Images",
     "index"  : "Site Index",
     "issue"  : "Comic Issues",
     "manga"  : "Manga",
+    "media"  : "Media Files",
     "popular": "Popular Images",
     "recent" : "Recent Images",
     "search" : "Search Results",
@@ -134,12 +145,21 @@ SUBCATEGORY_MAP = {
     "artstation": {
         "artwork": "Artwork Listings",
     },
+    "atfbooru": {
+        "favorite": "",
+    },
+    "danbooru": {
+        "favorite": "",
+    },
     "desktopography": {
         "site": "",
     },
     "deviantart": {
         "stash": "Sta.sh",
         "watch-posts": "",
+    },
+    "fanbox": {
+        "redirect": "",
     },
     "hentaifoundry": {
         "story": "",
@@ -156,11 +176,6 @@ SUBCATEGORY_MAP = {
     "mangadex": {
         "feed" : "Followed Feed",
     },
-    "newgrounds": {
-        "art"  : "Art",
-        "audio": "Audio",
-        "media": "Media Files",
-    },
     "pinterest": {
         "board": "",
         "pinit": "pin.it Links",
@@ -174,6 +189,9 @@ SUBCATEGORY_MAP = {
     "sankaku": {
         "books": "Book Searches",
     },
+    "sexcom": {
+        "pins": "User Pins",
+    },
     "smugmug": {
         "path": "Images from Users and Folders",
     },
@@ -184,6 +202,9 @@ SUBCATEGORY_MAP = {
     },
     "wallhaven": {
         "collections": "",
+    },
+    "wallpapercave": {
+        "image": "individual Images, Search Results",
     },
     "weasyl": {
         "journals"   : "",
@@ -199,6 +220,7 @@ BASE_MAP = {
     "foolslide"   : "FoOlSlide Instances",
     "gelbooru_v01": "Gelbooru Beta 0.1.11",
     "gelbooru_v02": "Gelbooru Beta 0.2",
+    "lolisafe"    : "lolisafe and chibisafe",
     "moebooru"    : "Moebooru and MyImouto",
 }
 
@@ -213,6 +235,7 @@ _APIKEY_WY = \
 
 AUTH_MAP = {
     "aryion"         : "Supported",
+    "atfbooru"       : "Supported",
     "baraag"         : _OAUTH,
     "danbooru"       : "Supported",
     "derpibooru"     : _APIKEY_DB,
@@ -260,6 +283,7 @@ IGNORE_LIST = (
     "recursive",
     "test",
     "ytdl",
+    "generic",
 )
 
 
@@ -336,6 +360,14 @@ def build_extractor_list():
             for category, root in extr.instances:
                 base[category].append(extr.subcategory)
                 if category not in domains:
+                    if not root:
+                        # use domain from first matching test
+                        for url, _ in extr._get_tests():
+                            if extr.from_url(url).category == category:
+                                root = url[:url.index("/", 8)]
+                                break
+                        else:
+                            continue
                     domains[category] = root + "/"
 
     # sort subcategory lists
@@ -389,8 +421,10 @@ def generate_output(columns, categories, domains):
             name = BASE_MAP.get(name) or (name.capitalize() + " Instances")
             append('\n<tr>\n    <td colspan="4"><strong>' +
                    name + '</strong></td>\n</tr>')
+            clist = base.items()
+        else:
+            clist = sorted(base.items(), key=category_key)
 
-        clist = sorted(base.items(), key=category_key)
         for category, subcategories in clist:
             append("<tr>")
             for column in columns:

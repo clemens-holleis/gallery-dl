@@ -46,7 +46,7 @@ class PhilomenaExtractor(BooruExtractor):
             try:
                 params["filter_id"] = INSTANCES[self.category]["filter_id"]
             except (KeyError, TypeError):
-                pass
+                params["filter_id"] = "2"
 
         while True:
             data = self.request(url, params=params).json()
@@ -172,7 +172,7 @@ class PhilomenaSearchExtractor(PhilomenaExtractor):
         PhilomenaExtractor.__init__(self, match)
         groups = match.groups()
         if groups[-1]:
-            q = groups[-1]
+            q = groups[-1].replace("+", " ")
             for old, new in (
                 ("-colon-"  , ":"),
                 ("-dash-"   , "-"),

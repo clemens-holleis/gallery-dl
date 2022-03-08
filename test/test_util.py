@@ -357,6 +357,83 @@ class TestOther(unittest.TestCase):
         with self.assertRaises(exception.StopExtraction):
             expr()
 
+    def test_build_duration_func(self, f=util.build_duration_func):
+        for v in (0, 0.0, "", None, (), []):
+            self.assertIsNone(f(v))
+
+        def test_single(df, v):
+            for _ in range(10):
+                self.assertEqual(df(), v)
+
+        def test_range(df, lower, upper):
+            for __ in range(10):
+                v = df()
+                self.assertGreaterEqual(v, lower)
+                self.assertLessEqual(v, upper)
+
+        test_single(f(3), 3)
+        test_single(f(3.0), 3.0)
+        test_single(f("3"), 3)
+        test_single(f("3.0-"), 3)
+        test_single(f("  3  -"), 3)
+
+        test_range(f((2, 4)), 2, 4)
+        test_range(f([2, 4]), 2, 4)
+        test_range(f("2-4"), 2, 4)
+        test_range(f("  2.0  - 4 "), 2, 4)
+
+    def test_extractor_filter(self):
+        # empty
+        func = util.build_extractor_filter("")
+        self.assertEqual(func(TestExtractor)      , True)
+        self.assertEqual(func(TestExtractorParent), True)
+        self.assertEqual(func(TestExtractorAlt)   , True)
+
+        # category
+        func = util.build_extractor_filter("test_category")
+        self.assertEqual(func(TestExtractor)      , False)
+        self.assertEqual(func(TestExtractorParent), False)
+        self.assertEqual(func(TestExtractorAlt)   , True)
+
+        # subcategory
+        func = util.build_extractor_filter("*:test_subcategory")
+        self.assertEqual(func(TestExtractor)      , False)
+        self.assertEqual(func(TestExtractorParent), True)
+        self.assertEqual(func(TestExtractorAlt)   , False)
+
+        # basecategory
+        func = util.build_extractor_filter("test_basecategory")
+        self.assertEqual(func(TestExtractor)      , False)
+        self.assertEqual(func(TestExtractorParent), False)
+        self.assertEqual(func(TestExtractorAlt)   , False)
+
+        # category-subcategory pair
+        func = util.build_extractor_filter("test_category:test_subcategory")
+        self.assertEqual(func(TestExtractor)      , False)
+        self.assertEqual(func(TestExtractorParent), True)
+        self.assertEqual(func(TestExtractorAlt)   , True)
+
+        # combination
+        func = util.build_extractor_filter(
+            ["test_category", "*:test_subcategory"])
+        self.assertEqual(func(TestExtractor)      , False)
+        self.assertEqual(func(TestExtractorParent), False)
+        self.assertEqual(func(TestExtractorAlt)   , False)
+
+        # whitelist
+        func = util.build_extractor_filter(
+            "test_category:test_subcategory", negate=False)
+        self.assertEqual(func(TestExtractor)      , True)
+        self.assertEqual(func(TestExtractorParent), False)
+        self.assertEqual(func(TestExtractorAlt)   , False)
+
+        func = util.build_extractor_filter(
+            ["test_category:test_subcategory", "*:test_subcategory_parent"],
+            negate=False)
+        self.assertEqual(func(TestExtractor)      , True)
+        self.assertEqual(func(TestExtractorParent), True)
+        self.assertEqual(func(TestExtractorAlt)   , False)
+
     def test_generate_token(self):
         tokens = set()
         for _ in range(100):
@@ -467,6 +544,22 @@ class TestOther(unittest.TestCase):
         self.assertEqual(repr(obj), repr(None))
         self.assertIs(obj.attr, obj)
         self.assertIs(obj["key"], obj)
+
+
+class TestExtractor():
+    category = "test_category"
+    subcategory = "test_subcategory"
+    basecategory = "test_basecategory"
+
+
+class TestExtractorParent(TestExtractor):
+    category = "test_category"
+    subcategory = "test_subcategory_parent"
+
+
+class TestExtractorAlt(TestExtractor):
+    category = "test_category_alt"
+    subcategory = "test_subcategory"
 
 
 if __name__ == '__main__':

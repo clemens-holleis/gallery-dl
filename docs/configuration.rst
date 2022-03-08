@@ -463,6 +463,20 @@ Description
     otherwise ``http://`` is assumed.
 
 
+extractor.*.source-address
+--------------------------
+Type
+    * ``string``
+    * ``list`` with 1 ``string`` and 1 ``integer`` as elements
+Example
+    * ``"192.168.178.20"``
+    * ``["192.168.178.20", 8080]``
+Description
+    Client-side IP address to bind to.
+
+    | Can be either a simple ``string`` with just the local IP address
+    | or a ``list`` with IP and explicit port number as elements.
+
 extractor.*.user-agent
 ----------------------
 Type
@@ -550,10 +564,18 @@ Type
     ``list`` of ``strings``
 Default
     ``["oauth", "recursive", "test"]`` + current extractor category
+Example
+    ``["imgur", "gfycat:user", "*:image"]``
 Description
-    A list of extractor categories to ignore (or allow)
+    A list of extractor identifiers to ignore (or allow)
     when spawning child extractors for unknown URLs,
     e.g. from ``reddit`` or ``plurk``.
+
+    Each identifier can be
+
+    * A category or basecategory name (``"imgur"``, ``"mastodon"``)
+    * | A (base)category-subcategory pair, where both names are separated by a colon (``"gfycat:user"``).
+      | Both names can be a `*` or left empty, matching all possible names (``"*:image"``, ``":user"``).
 
     Note: Any ``blacklist`` setting will automatically include
     ``"oauth"``, ``"recursive"``, and ``"test"``.
@@ -1081,17 +1103,6 @@ Description
     Minimum wait time in seconds before API requests.
 
 
-extractor.exhentai.limits
--------------------------
-Type
-    ``integer``
-Default
-    ``null``
-Description
-    Sets a custom image download limit and
-    stops extraction when it gets exceeded.
-
-
 extractor.exhentai.domain
 -------------------------
 Type
@@ -1103,6 +1114,17 @@ Description
       depending on the input URL
     * ``"e-hentai.org"``: Use ``e-hentai.org`` for all URLs
     * ``"exhentai.org"``: Use ``exhentai.org`` for all URLs
+
+
+extractor.exhentai.limits
+-------------------------
+Type
+    ``integer``
+Default
+    ``null``
+Description
+    Sets a custom image download limit and
+    stops extraction when it gets exceeded.
 
 
 extractor.exhentai.metadata
@@ -1127,6 +1149,18 @@ Default
     ``true``
 Description
     Download full-sized original images if available.
+
+
+extractor.exhentai.source
+-------------------------
+Type
+    ``string``
+Default
+    ``"gallery"``
+Description
+    Selects an alternative source to download files from.
+
+    * ``"hitomi"``:  Download the corresponding gallery from ``hitomi.la``
 
 
 extractor.fanbox.embeds
@@ -1223,6 +1257,31 @@ Description
     You can use ``"all"`` instead of listing all values separately.
 
 
+extractor.furaffinity.layout
+----------------------------
+Type
+    ``string``
+Default
+    ``"auto"``
+Description
+    Selects which site layout to expect when parsing posts.
+
+    * ``"auto"``: Automatically differentiate between ``"old"`` and ``"new"``
+    * ``"old"``: Expect the *old* site layout
+    * ``"new"``: Expect the *new* site layout
+
+
+extractor.generic.enabled
+-------------------------
+Type
+    ``bool``
+Default
+    ``false``
+Description
+    Match **all** URLs not otherwise supported by gallery-dl,
+    even ones without a ``generic:`` prefix.
+
+
 extractor.gfycat.format
 -----------------------
 Type
@@ -1260,12 +1319,27 @@ Description
     You can use ``"all"`` instead of listing all values separately.
 
 
+extractor.hitomi.format
+-----------------------
+Type
+    ``string``
+Default
+    ``"webp"``
+Description
+    Selects which image format to download.
+
+    Available formats are ``"webp"`` and ``"avif"``.
+
+    ``"original"`` will try to download the original ``jpg`` or ``png`` versions,
+    but is most likely going to fail with ``403 Forbidden`` errors.
+
+
 extractor.hitomi.metadata
 -------------------------
 Type
     ``bool``
 Default
-    ``true``
+    ``false``
 Description
     Try to extract
     ``artist``, ``group``, ``parody``,  and ``characters`` metadata.
@@ -1338,16 +1412,26 @@ Description
     Extract ``comments`` metadata.
 
 
+extractor.kemonoparty.dms
+-------------------------
+Type
+    ``bool``
+Default
+    ``false``
+Description
+    Extract a user's direct messages as ``dms`` metadata.
+
+
 extractor.kemonoparty.files
 ---------------------------
 Type
     ``list`` of ``strings``
 Default
-    ``["postfile", "attachments", "inline"]``
+    ``["attachments", "file", "inline"]``
 Description
     Determines the type and order of files to be downloaded.
 
-    Available types are ``postfile``, ``attachments``, and ``inline``.
+    Available types are ``file``, ``attachments``, and ``inline``.
 
 
 extractor.kemonoparty.max-posts
@@ -1431,16 +1515,6 @@ Example
 Description
     `ISO 639-1 <https://en.wikipedia.org/wiki/ISO_639-1>`_ language code
     to filter chapters by.
-
-
-extractor.mangadex.metadata
----------------------------
-Type
-    ``bool``
-Default
-    ``false``
-Description
-    Provide ``artist``, ``author``, and ``group`` metadata fields.
 
 
 extractor.mangadex.ratings
@@ -1587,12 +1661,12 @@ extractor.patreon.files
 Type
     ``list`` of ``strings``
 Default
-    ``["images", "attachments", "postfile", "content"]``
+    ``["images", "image_large", "attachments", "postfile", "content"]``
 Description
     Determines the type and order of files to be downloaded.
 
     Available types are
-    ``postfile``, ``images``, ``attachments``, and ``content``.
+    ``postfile``, ``images``, ``image_large``, ``attachments``, and ``content``.
 
 
 extractor.photobucket.subalbums
@@ -1905,6 +1979,26 @@ Description
     Download videos.
 
 
+extractor.skeb.sent-requests
+----------------------------
+Type
+    ``bool``
+Default
+    ``false``
+Description
+    Download sent requests.
+
+
+extractor.skeb.thumbnails
+-------------------------
+Type
+    ``bool``
+Default
+    ``false``
+Description
+    Download thumbnails.
+
+
 extractor.smugmug.videos
 ------------------------
 Type
@@ -1986,14 +2080,44 @@ Description
     You can use ``"all"`` instead of listing all types separately.
 
 
+extractor.twibooru.api-key
+--------------------------
+Type
+    ``string``
+Default
+    ``null``
+Description
+    Your `Twibooru API Key <https://twibooru.org/users/edit>`__,
+    to use your account's browsing settings and filters.
+
+
+extractor.twibooru.filter
+-------------------------
+Type
+    ``integer``
+Default
+    ``2`` (`Everything <https://twibooru.org/filters/2>`__ filter)
+Description
+    The content filter ID to use.
+
+    Setting an explicit filter ID overrides any default filters and can be used
+    to access 18+ content without `API Key <extractor.twibooru.api-key_>`__.
+
+    See `Filters <https://twibooru.org/filters>`__ for details.
+
+
 extractor.twitter.cards
 -----------------------
 Type
-    ``bool``
+    ``bool`` or ``string``
 Default
-    ``false``
+    ``true``
 Description
-    Fetch media from `Cards <https://developer.twitter.com/en/docs/twitter-for-websites/cards/overview/abouts-cards>`__.
+    Controls how to handle `Twitter Cards <https://developer.twitter.com/en/docs/twitter-for-websites/cards/overview/abouts-cards>`__.
+
+    * ``false``: Ignore cards
+    * ``true``: Download image content from supported cards
+    * ``"ytdl"``: Additionally download video content from unsupported cards using `youtube-dl`_
 
 
 extractor.twitter.conversations
@@ -2012,7 +2136,7 @@ extractor.twitter.size
 Type
     ``list`` of ``strings``
 Default
-    ``["orig", "large", "medium", "small"]``
+    ``["orig", "4096x4096", "large", "medium", "small"]``
 Description
     The image version to download.
     Any entries after the first one will be used for potential
@@ -2265,9 +2389,12 @@ extractor.ytdl.module
 Type
     ``string``
 Default
-    ``"youtube_dl"``
+    ``null``
 Description
     Name of the youtube-dl Python module to import.
+
+    Setting this to ``null`` will try to import ``"yt_dlp"``
+    followed by ``"youtube_dl"`` as fallback.
 
 
 extractor.ytdl.raw-options
@@ -2554,9 +2681,12 @@ downloader.ytdl.module
 Type
     ``string``
 Default
-    ``"youtube_dl"``
+    ``null``
 Description
     Name of the youtube-dl Python module to import.
+
+    Setting this to ``null`` will first try to import ``"yt_dlp"``
+    and use ``"youtube_dl"`` as fallback.
 
 
 downloader.ytdl.outtmpl
@@ -2988,6 +3118,37 @@ Description
     Note: Only applies for ``"mode": "custom"``.
 
 
+metadata.mtime
+--------------
+Type
+    ``bool``
+Default
+    ``false``
+Description
+    Set modification times for generated metadata files
+    according to the accompanying downloaded file.
+
+    Enabling this option will only have an effect
+    *if* there is actual ``mtime`` metadata available, that is
+
+    * after a file download (``"event": "file"`` (default), ``"event": "after"``)
+    * when running *after* an ``mtime`` post processes for the same `event <metadata.event_>`__
+
+    For example, a ``metadata`` post processor for ``"event": "post"`` will
+    *not* be able to set its file's modification time unless an ``mtime``
+    post processor with ``"event": "post"`` runs *before* it.
+
+
+mtime.event
+-----------
+Type
+    ``string``
+Default
+    ``"file"``
+Description
+    See `metadata.event`_
+
+
 mtime.key
 ---------
 Type
@@ -3203,6 +3364,18 @@ Description
     this cache.
 
 
+signals-ignore
+--------------
+Type
+    ``list`` of ``strings``
+Example
+    ``["SIGTTOU", "SIGTTIN", "SIGTERM"]``
+Description
+    The list of signal names to ignore, i.e. set
+    `SIG_IGN <https://docs.python.org/3/library/signal.html#signal.SIG_IGN>`_
+    as signal handler for.
+
+
 pyopenssl
 ---------
 Type
@@ -3337,9 +3510,11 @@ Duration
 Type
     * ``float``
     * ``list`` with 2 ``floats``
+    * ``string``
 Example
     * ``2.85``
     * ``[1.5, 3.0]``
+    * ``"2.85"``, ``"1.5-3.0"``
 Description
     A |Duration|_ represents a span of time in seconds.
 
@@ -3347,6 +3522,8 @@ Description
     * If given as a ``list`` with 2 floating-point numbers ``a`` & ``b`` ,
       it will be randomly chosen with uniform distribution such that ``a <= N <=b``.
       (see `random.uniform() <https://docs.python.org/3/library/random.html#random.uniform>`_)
+    * If given as a ``string``, it can either represent a single ``float``
+      value (``"2.85"``) or a range  (``"1.5-3.0"``).
 
 
 Path

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2020 Mike Fährmann
+# Copyright 2020-2022 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -202,6 +202,43 @@ class InkbunnyFavoriteExtractor(InkbunnyExtractor):
         }
         if self.orderby and self.orderby.startswith("unread_"):
             params["unread_submissions"] = "yes"
+        return self.api.search(params)
+
+
+class InkbunnySearchExtractor(InkbunnyExtractor):
+    """Extractor for inkbunny search results"""
+    subcategory = "search"
+    pattern = (BASE_PATTERN +
+               r"/submissionsviewall\.php\?([^#]+&mode=search&[^#]+)")
+    test = (("https://inkbunny.net/submissionsviewall.php?rid=ffffffffff"
+             "&mode=search&page=1&orderby=create_datetime&text=cute"
+             "&stringtype=and&keywords=yes&title=yes&description=no&artist="
+             "&favsby=&type=&days=&keyword_id=&user_id=&random=&md5="), {
+        "range": "1-10",
+        "count": 10,
+    })
+
+    def __init__(self, match):
+        InkbunnyExtractor.__init__(self, match)
+        self.query = match.group(1)
+
+    def posts(self):
+        params = text.parse_query(self.query)
+        pop = params.pop
+
+        pop("rid", None)
+        params["string_join_type"] = pop("stringtype", None)
+        params["dayslimit"] = pop("days", None)
+        params["username"] = pop("artist", None)
+
+        favsby = pop("favsby", None)
+        if favsby:
+            # get user_id from user profile
+            url = "{}/{}".format(self.root, favsby)
+            page = self.request(url).text
+            user_id = text.extract(page, "?user_id=", "'")[0]
+            params["favs_user_id"] = user_id.partition("&")[0]
+
         return self.api.search(params)
 
 

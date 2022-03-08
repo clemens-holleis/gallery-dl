@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2018-2021 Mike Fährmann
+# Copyright 2018-2022 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -38,6 +38,7 @@ class NewgroundsExtractor(Extractor):
 
     def items(self):
         self.login()
+        metadata = self.metadata()
 
         for post_url in self.posts():
             try:
@@ -48,6 +49,8 @@ class NewgroundsExtractor(Extractor):
                 url = None
 
             if url:
+                if metadata:
+                    post.update(metadata)
                 yield Message.Directory, post
                 yield Message.Url, url, text.nameext_from_url(url, post)
 
@@ -62,8 +65,11 @@ class NewgroundsExtractor(Extractor):
                     "Unable to get download URL for '%s'", post_url)
 
     def posts(self):
-        """Return urls of all relevant image pages"""
+        """Return URLs of all relevant post pages"""
         return self._pagination(self._path)
+
+    def metadata(self):
+        """Return general metadata"""
 
     def login(self):
         username, password = self._get_auth_info()
@@ -97,7 +103,7 @@ class NewgroundsExtractor(Extractor):
         }
 
     def extract_post(self, post_url):
-
+        url = post_url
         if "/art/view/" in post_url:
             extract_data = self._extract_image_data
         elif "/audio/listen/" in post_url:
@@ -105,18 +111,19 @@ class NewgroundsExtractor(Extractor):
         else:
             extract_data = self._extract_media_data
             if self.flash:
-                post_url += "/format/flash"
+                url += "/format/flash"
 
-        response = self.request(post_url, fatal=False)
+        response = self.request(url, fatal=False)
         if response.status_code >= 400:
             return {}
         page = response.text
         extr = text.extract_from(page)
         data = extract_data(extr, post_url)
 
-        data["_comment"] = extr('id="author_comments"', '</div>')
+        data["_comment"] = extr(
+            'id="author_comments"', '</div>').partition(">")[2]
         data["comment"] = text.unescape(text.remove_html(
-            data["_comment"].partition(">")[2], "", ""))
+            data["_comment"], "", ""))
         data["favorites"] = text.parse_int(extr(
             'id="faves_load">', '<').replace(",", ""))
         data["score"] = text.parse_float(extr('id="score_number">', '<'))
@@ -128,6 +135,7 @@ class NewgroundsExtractor(Extractor):
 
         data["tags"].sort()
         data["user"] = self.user or data["artist"][0]
+        data["post_url"] = post_url
         return data
 
     @staticmethod
@@ -420,7 +428,7 @@ class NewgroundsFavoriteExtractor(NewgroundsExtractor):
     """Extractor for posts favorited by a newgrounds user"""
     subcategory = "favorite"
     directory_fmt = ("{category}", "{user}", "Favorites")
-    pattern = (r"(?:https?://)?([^.]+)\.newgrounds\.com"
+    pattern = (r"(?:https?://)?([\w-]+)\.newgrounds\.com"
                r"/favorites(?!/following)(?:/(art|audio|movies))?/?")
     test = (
         ("https://tomfulp.newgrounds.com/favorites/art", {
@@ -475,7 +483,7 @@ class NewgroundsFavoriteExtractor(NewgroundsExtractor):
 class NewgroundsFollowingExtractor(NewgroundsFavoriteExtractor):
     """Extractor for a newgrounds user's favorited users"""
     subcategory = "following"
-    pattern = r"(?:https?://)?([^.]+)\.newgrounds\.com/favorites/(following)"
+    pattern = r"(?:https?://)?([\w-]+)\.newgrounds\.com/favorites/(following)"
     test = ("https://tomfulp.newgrounds.com/favorites/following", {
         "pattern": NewgroundsUserExtractor.pattern,
         "range": "76-125",
@@ -493,3 +501,65 @@ class NewgroundsFollowingExtractor(NewgroundsFavoriteExtractor):
             text.ensure_http_scheme(user.rpartition('"')[2])
             for user in text.extract_iter(page, 'class="item-user', '"><img')
         ]
+
+
+class NewgroundsSearchExtractor(NewgroundsExtractor):
+    """Extractor for newgrounds.com search reesults"""
+    subcategory = "search"
+    directory_fmt = ("{category}", "search", "{search_tags}")
+    pattern = (r"(?:https?://)?(?:www\.)?newgrounds\.com"
+               r"/search/conduct/([^/?#]+)/?\?([^#]+)")
+    test = (
+        ("https://www.newgrounds.com/search/conduct/art?terms=tree", {
+            "pattern": NewgroundsImageExtractor.pattern,
+            "keyword": {"search_tags": "tree"},
+            "range": "1-10",
+            "count": 10,
+        }),
+        ("https://www.newgrounds.com/search/conduct/movies?terms=tree", {
+            "pattern": r"https://uploads.ungrounded.net(/alternate)?/\d+/\d+",
+            "range": "1-10",
+            "count": 10,
+        }),
+        ("https://www.newgrounds.com/search/conduct/audio?advanced=1"
+         "&terms=tree+green+nature&match=tdtu&genre=5&suitabilities=e%2Cm"),
+    )
+
+    def __init__(self, match):
+        NewgroundsExtractor.__init__(self, match)
+        self._path, query = match.groups()
+        self.query = text.parse_query(query)
+
+    def posts(self):
+        suitabilities = self.query.get("suitabilities")
+        if suitabilities:
+            data = {"view_suitability_" + s: "on"
+                    for s in suitabilities.split(",")}
+            self.request(self.root + "/suitabilities",
+                         method="POST", data=data)
+        return self._pagination("/search/conduct/" + self._path, self.query)
+
+    def metadata(self):
+        return {"search_tags": self.query.get("terms", "")}
+
+    def _pagination(self, path, params):
+        url = self.root + path
+        headers = {
+            "Accept": "application/json, text/javascript, */*; q=0.01",
+            "X-Requested-With": "XMLHttpRequest",
+            "Referer": self.root,
+        }
+        params["inner"] = "1"
+        params["page"] = 1
+
+        while True:
+            data = self.request(url, params=params, headers=headers).json()
+
+            post_url = None
+            for post_url in text.extract_iter(data["content"], 'href="', '"'):
+                if not post_url.startswith("/search/"):
+                    yield post_url
+
+            if post_url is None:
+                return
+            params["page"] += 1

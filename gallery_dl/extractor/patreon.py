@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2019-2021 Mike Fährmann
+# Copyright 2019-2022 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -20,16 +20,18 @@ class PatreonExtractor(Extractor):
     """Base class for patreon extractors"""
     category = "patreon"
     root = "https://www.patreon.com"
+    cookiedomain = ".patreon.com"
     directory_fmt = ("{category}", "{creator[full_name]}")
     filename_fmt = "{id}_{title}_{num:>02}.{extension}"
     archive_fmt = "{id}_{num}"
     browser = "firefox"
+    tls12 = False
     _warning = True
 
     def items(self):
 
         if self._warning:
-            if "session_id" not in self.session.cookies:
+            if not self._check_cookies(("session_id",)):
                 self.log.warning("no 'session_id' cookie set")
             PatreonExtractor._warning = False
         generators = self._build_file_generators(self.config("files"))
@@ -68,6 +70,15 @@ class PatreonExtractor(Extractor):
             if url:
                 name = image.get("file_name") or self._filename(url) or url
                 yield "image", url, name
+
+    def _image_large(self, post):
+        image = post.get("image")
+        if image:
+            url = image.get("large_url")
+            if url:
+                name = image.get("file_name") or self._filename(url) or url
+                return (("image_large", url, name),)
+        return ()
 
     def _attachments(self, post):
         for attachment in post["attachments"]:
@@ -210,10 +221,11 @@ class PatreonExtractor(Extractor):
 
     def _build_file_generators(self, filetypes):
         if filetypes is None:
-            return (self._images, self._attachments,
-                    self._postfile, self._content)
+            return (self._images, self._image_large,
+                    self._attachments, self._postfile, self._content)
         genmap = {
             "images"     : self._images,
+            "image_large": self._image_large,
             "attachments": self._attachments,
             "postfile"   : self._postfile,
             "content"    : self._content,

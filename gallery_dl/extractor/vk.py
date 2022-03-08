@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2021 Mike Fährmann
+# Copyright 2021-2022 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -34,7 +34,6 @@ class VkExtractor(Extractor):
     def _pagination(self, photos_url, user_id):
         sub = re.compile(r"/imp[fg]/").sub
         needle = 'data-id="{}_'.format(user_id)
-        cnt = 0
 
         headers = {
             "X-Requested-With": "XMLHttpRequest",
@@ -56,7 +55,9 @@ class VkExtractor(Extractor):
             offset = payload[0]
             html = payload[1]
 
-            for cnt, photo in enumerate(text.extract_iter(html, needle, ')')):
+            cnt = 0
+            for photo in text.extract_iter(html, needle, ')'):
+                cnt += 1
                 pid = photo[:photo.find('"')]
                 url = photo[photo.rindex("(")+1:]
                 url = sub("/", url.partition("?")[0])
@@ -75,8 +76,8 @@ class VkPhotosExtractor(VkExtractor):
                r"|(?!album-?\d+_)([^/?#]+))")
     test = (
         ("https://vk.com/id398982326", {
-            "pattern": r"https://sun\d+-\d+\.userapi\.com/c\d+/v\d+"
-                       r"/[0-9a-f]+/[\w-]+\.jpg",
+            "pattern": r"https://sun\d+-\d+\.userapi\.com/sun\d+-\d+"
+                       r"/c\d+/v\d+/[0-9a-f]+/[\w-]+\.jpg",
             "count": ">= 35",
             "keywords": {
                 "id": r"re:\d+",
