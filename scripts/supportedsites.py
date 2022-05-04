@@ -26,6 +26,7 @@ CATEGORY_MAP = {
     "bbc"            : "BBC",
     "bcy"            : "半次元",
     "comicvine"      : "Comic Vine",
+    "coomerparty"    : "Coomer",
     "deviantart"     : "DeviantArt",
     "drawfriends"    : "Draw Friends",
     "dynastyscans"   : "Dynasty Reader",
@@ -57,6 +58,7 @@ CATEGORY_MAP = {
     "imgur"          : "imgur",
     "joyreactor"     : "JoyReactor",
     "kabeuchi"       : "かべうち",
+    "kemonoparty"    : "Kemono",
     "kireicake"      : "Kirei Cake",
     "kissgoddess"    : "Kiss Goddess",
     "lineblog"       : "LINE BLOG",
@@ -70,6 +72,7 @@ CATEGORY_MAP = {
     "mangapark"      : "MangaPark",
     "mangasee"       : "MangaSee",
     "mastodon.social": "mastodon.social",
+    "mememuseum"     : "meme.museum",
     "myhentaigallery": "My Hentai Gallery",
     "myportfolio"    : "Adobe Portfolio",
     "naverwebtoon"   : "NaverWebtoon",
@@ -148,6 +151,10 @@ SUBCATEGORY_MAP = {
     "atfbooru": {
         "favorite": "",
     },
+    "coomerparty": {
+        "discord"       : "",
+        "discord-server": "",
+    },
     "danbooru": {
         "favorite": "",
     },
@@ -176,9 +183,13 @@ SUBCATEGORY_MAP = {
     "mangadex": {
         "feed" : "Followed Feed",
     },
+    "nijie": {
+        "nuita" : "Nuita History",
+    },
     "pinterest": {
         "board": "",
         "pinit": "pin.it Links",
+        "created": "Created Pins",
     },
     "pixiv": {
         "me"  : "pixiv.me Links",
@@ -237,6 +248,7 @@ AUTH_MAP = {
     "aryion"         : "Supported",
     "atfbooru"       : "Supported",
     "baraag"         : _OAUTH,
+    "coomerparty"    : "Supported",
     "danbooru"       : "Supported",
     "derpibooru"     : _APIKEY_DB,
     "deviantart"     : _OAUTH,
@@ -265,7 +277,7 @@ AUTH_MAP = {
     "ponybooru"      : "API Key",
     "reddit"         : _OAUTH,
     "sankaku"        : "Supported",
-    "seiga"          : "Required",
+    "seiga"          : _COOKIES,
     "seisoparty"     : "Supported",
     "smugmug"        : _OAUTH,
     "subscribestar"  : "Supported",
@@ -378,6 +390,10 @@ def build_extractor_list():
     # add e-hentai.org
     default["e-hentai"] = default["exhentai"]
     domains["e-hentai"] = domains["exhentai"].replace("x", "-")
+
+    # add coomer.party
+    default["coomerparty"] = default["kemonoparty"]
+    domains["coomerparty"] = domains["kemonoparty"].replace("kemono", "coomer")
 
     # add hentai-cosplays sister sites (hentai-img, porn-images-xxx)
     default["hentaiimg"] = default["hentaicosplays"]

@@ -89,7 +89,7 @@ class TestCookiedict(unittest.TestCase):
         self.assertEqual(sorted(cookies.values()), sorted(self.cdict.values()))
 
     def test_domain(self):
-        for category in ["exhentai", "idolcomplex", "nijie", "seiga"]:
+        for category in ["exhentai", "idolcomplex", "nijie"]:
             extr = _get_extractor(category)
             cookies = extr.session.cookies
             for key in self.cdict:
@@ -108,7 +108,6 @@ class TestCookieLogin(unittest.TestCase):
             "exhentai"   : ("ipb_member_id", "ipb_pass_hash"),
             "idolcomplex": ("login", "pass_hash"),
             "nijie"      : ("nemail", "nlogin"),
-            "seiga"      : ("user_session",),
         }
         for category, cookienames in extr_cookies.items():
             cookies = {name: "value" for name in cookienames}
@@ -181,14 +180,14 @@ class TestCookieUtils(unittest.TestCase):
 
         extr._cookiejar.set("a", "1", expires=now+100)
         with mock.patch.object(log, "warning") as mw:
-            self.assertFalse(extr._check_cookies(("a",)))
+            self.assertTrue(extr._check_cookies(("a",)))
             self.assertEqual(mw.call_count, 1)
             self.assertEqual(mw.call_args[0], (
                 "Cookie '%s' will expire in less than %s hour%s", "a", 1, ""))
 
         extr._cookiejar.set("a", "1", expires=now+100+7200)
         with mock.patch.object(log, "warning") as mw:
-            self.assertFalse(extr._check_cookies(("a",)))
+            self.assertTrue(extr._check_cookies(("a",)))
             self.assertEqual(mw.call_count, 1)
             self.assertEqual(mw.call_args[0], (
                 "Cookie '%s' will expire in less than %s hour%s", "a", 3, "s"))

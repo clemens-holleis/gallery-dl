@@ -55,6 +55,7 @@ class Extractor():
         self._retries = self.config("retries", 4)
         self._timeout = self.config("timeout", 30)
         self._verify = self.config("verify", True)
+        self._proxies = util.build_proxy_map(self.config("proxy"), self.log)
         self._interval = util.build_duration_func(
             self.config("sleep-request", self.request_interval),
             self.request_interval_min,
@@ -65,7 +66,6 @@ class Extractor():
 
         self._init_session()
         self._init_cookies()
-        self._init_proxies()
 
     @classmethod
     def from_url(cls, url):
@@ -104,10 +104,12 @@ class Extractor():
 
     def request(self, url, *, method="GET", session=None, retries=None,
                 encoding=None, fatal=True, notfound=None, **kwargs):
-        if retries is None:
-            retries = self._retries
         if session is None:
             session = self.session
+        if retries is None:
+            retries = self._retries
+        if "proxies" not in kwargs:
+            kwargs["proxies"] = self._proxies
         if "timeout" not in kwargs:
             kwargs["timeout"] = self._timeout
         if "verify" not in kwargs:
@@ -181,7 +183,7 @@ class Extractor():
         elif until:
             if isinstance(until, datetime.datetime):
                 # convert to UTC timestamp
-                until = (until - util.EPOCH) / util.SECOND
+                until = util.datetime_to_timestamp(until)
             else:
                 until = float(until)
             seconds = until - now
@@ -289,20 +291,6 @@ class Extractor():
         session.mount("https://", adapter)
         session.mount("http://", adapter)
 
-    def _init_proxies(self):
-        """Update the session's proxy map"""
-        proxies = self.config("proxy")
-        if proxies:
-            if isinstance(proxies, str):
-                proxies = {"http": proxies, "https": proxies}
-            if isinstance(proxies, dict):
-                for scheme, proxy in proxies.items():
-                    if "://" not in proxy:
-                        proxies[scheme] = "http://" + proxy.lstrip("/")
-                self.session.proxies = proxies
-            else:
-                self.log.warning("invalid proxy specifier: %s", proxies)
-
     def _init_cookies(self):
         """Populate the session's cookiejar"""
         self._cookiefile = None
@@ -385,7 +373,6 @@ class Extractor():
                         self.log.warning(
                             "Cookie '%s' will expire in less than %s hour%s",
                             cookie.name, hours + 1, "s" if hours else "")
-                        continue
 
                 names.discard(cookie.name)
                 if not names:
@@ -616,17 +603,20 @@ class BaseExtractor(Extractor):
 
     def __init__(self, match):
         if not self.category:
-            for index, group in enumerate(match.groups()):
-                if group is not None:
-                    if index:
-                        self.category, self.root = self.instances[index-1]
-                        if not self.root:
-                            self.root = text.root_from_url(match.group(0))
-                    else:
-                        self.root = group
-                        self.category = group.partition("://")[2]
-                    break
+            self._init_category(match)
         Extractor.__init__(self, match)
+
+    def _init_category(self, match):
+        for index, group in enumerate(match.groups()):
+            if group is not None:
+                if index:
+                    self.category, self.root = self.instances[index-1]
+                    if not self.root:
+                        self.root = text.root_from_url(match.group(0))
+                else:
+                    self.root = group
+                    self.category = group.partition("://")[2]
+                break
 
     @classmethod
     def update(cls, instances):

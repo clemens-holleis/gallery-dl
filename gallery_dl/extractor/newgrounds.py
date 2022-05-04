@@ -113,10 +113,16 @@ class NewgroundsExtractor(Extractor):
             if self.flash:
                 url += "/format/flash"
 
-        response = self.request(url, fatal=False)
-        if response.status_code >= 400:
-            return {}
-        page = response.text
+        with self.request(url, fatal=False) as response:
+            if response.status_code >= 400:
+                return {}
+            page = response.text
+
+        pos = page.find('id="adults_only"')
+        if pos >= 0:
+            msg = text.extract(page, 'class="highlight">', '<', pos)[0]
+            self.log.warning('"%s"', msg)
+
         extr = text.extract_from(page)
         data = extract_data(extr, post_url)
 
@@ -173,6 +179,7 @@ class NewgroundsExtractor(Extractor):
     def _extract_media_data(self, extr, url):
         index = url.split("/")[5]
         title = extr('"og:title" content="', '"')
+        descr = extr('"og:description" content="', '"')
         src = extr('{"url":"', '"')
 
         if src:
@@ -211,7 +218,7 @@ class NewgroundsExtractor(Extractor):
             "title"      : text.unescape(title),
             "url"        : src,
             "date"       : date,
-            "description": text.unescape(extr(
+            "description": text.unescape(descr or extr(
                 'itemprop="description" content="', '"')),
             "rating"     : extr('class="rated-', '"'),
             "index"      : text.parse_int(index),
@@ -229,16 +236,20 @@ class NewgroundsExtractor(Extractor):
             yield fmt[1][0]["src"]
 
     def _pagination(self, kind):
-        root = self.user_root
-        headers = {
-            "Accept": "application/json, text/javascript, */*; q=0.01",
-            "X-Requested-With": "XMLHttpRequest",
-            "Referer": root,
+        url = "{}/{}".format(self.user_root, kind)
+        params = {
+            "page": 1,
+            "isAjaxRequest": "1",
         }
-        url = "{}/{}/page/1".format(root, kind)
+        headers = {
+            "Referer": url,
+            "X-Requested-With": "XMLHttpRequest",
+        }
 
         while True:
-            with self.request(url, headers=headers, fatal=False) as response:
+            with self.request(
+                    url, params=params, headers=headers,
+                    fatal=False) as response:
                 try:
                     data = response.json()
                 except ValueError:
@@ -249,14 +260,17 @@ class NewgroundsExtractor(Extractor):
                     msg = ", ".join(text.unescape(e) for e in data["errors"])
                     raise exception.StopExtraction(msg)
 
-            for year in data["sequence"]:
-                for item in data["years"][str(year)]["items"]:
+            for year, items in data["items"].items():
+                for item in items:
                     page_url = text.extract(item, 'href="', '"')[0]
-                    yield text.urljoin(root, page_url)
+                    if page_url[0] == "/":
+                        page_url = self.root + page_url
+                    yield page_url
 
-            if not data["more"]:
+            more = data.get("load_more")
+            if not more or len(more) < 8:
                 return
-            url = text.urljoin(root, data["more"])
+            params["page"] += 1
 
 
 class NewgroundsImageExtractor(NewgroundsExtractor):
@@ -292,7 +306,12 @@ class NewgroundsImageExtractor(NewgroundsExtractor):
         ("https://www.newgrounds.com/art/view/sailoryon/yon-dream-buster", {
             "url": "84eec95e663041a80630df72719f231e157e5f5d",
             "count": 2,
-        })
+        }),
+        # "adult" rated (#2456)
+        ("https://www.newgrounds.com/art/view/kekiiro/red", {
+            "options": (("username", None),),
+            "count": 1,
+        }),
     )
 
     def __init__(self, match):
@@ -321,6 +340,7 @@ class NewgroundsMediaExtractor(NewgroundsExtractor):
                 "artist"     : ["kickinthehead", "danpaladin", "tomfulp"],
                 "comment"    : "re:My fan trailer for Alien Hominid HD!",
                 "date"       : "dt:2013-02-01 09:50:49",
+                "description": "Fan trailer for Alien Hominid HD!",
                 "favorites"  : int,
                 "filename"   : "564957_alternate_31",
                 "index"      : 595355,
@@ -357,6 +377,11 @@ class NewgroundsMediaExtractor(NewgroundsExtractor):
             "options": (("format", "720p"),),
             "pattern": r"https://uploads\.ungrounded\.net/alternate/1482000"
                        r"/1482860_alternate_102516\.720p\.mp4\?\d+",
+        }),
+        # "adult" rated (#2456)
+        ("https://www.newgrounds.com/portal/view/717744", {
+            "options": (("username", None),),
+            "count": 1,
         }),
     )
 
@@ -452,25 +477,28 @@ class NewgroundsFavoriteExtractor(NewgroundsExtractor):
         )
 
     def _pagination(self, kind):
-        num = 1
+        url = "{}/favorites/{}".format(self.user_root, kind)
+        params = {
+            "page": 1,
+            "isAjaxRequest": "1",
+        }
         headers = {
-            "Accept": "application/json, text/javascript, */*; q=0.01",
+            "Referer": url,
             "X-Requested-With": "XMLHttpRequest",
-            "Referer": self.user_root,
         }
 
         while True:
-            url = "{}/favorites/{}/{}".format(self.user_root, kind, num)
-            response = self.request(url, headers=headers)
+            response = self.request(url, params=params, headers=headers)
             if response.history:
                 return
 
-            favs = self._extract_favorites(response.text)
+            data = response.json()
+            favs = self._extract_favorites(data.get("component") or "")
             yield from favs
 
             if len(favs) < 24:
                 return
-            num += 1
+            params["page"] += 1
 
     def _extract_favorites(self, page):
         return [
