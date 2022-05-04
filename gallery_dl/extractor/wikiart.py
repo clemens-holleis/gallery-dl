@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2019-2021 Mike Fährmann
+# Copyright 2019-2022 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -70,8 +70,8 @@ class WikiartArtistExtractor(WikiartExtractor):
     directory_fmt = ("{category}", "{artist[artistName]}")
     pattern = BASE_PATTERN + r"/(?!\w+-by-)([\w-]+)/?$"
     test = ("https://www.wikiart.org/en/thomas-cole", {
-        "url": "deabec0ed7efa97e2a729ff9d08b539143106bac",
-        "keyword": "751a5457b71c8704982d3bb6485a214cd3d07bf9",
+        "url": "6844f207a5063c499fc1d5651b03127bc4fe2f73",
+        "keyword": "09230b5f504697119e267349bf92487e657a7384",
     })
 
     def __init__(self, match):

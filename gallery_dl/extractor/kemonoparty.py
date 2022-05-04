@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2021 Mike Fährmann
+# Copyright 2021-2022 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -14,7 +14,7 @@ from ..cache import cache
 import itertools
 import re
 
-BASE_PATTERN = r"(?:https?://)?(?:www\.)?(kemono|coomer)\.party"
+BASE_PATTERN = r"(?:https?://)?(?:www\.|beta\.)?(kemono|coomer)\.party"
 USER_PATTERN = BASE_PATTERN + r"/([^/?#]+)/user/([^/?#]+)"
 
 
@@ -23,15 +23,15 @@ class KemonopartyExtractor(Extractor):
     category = "kemonoparty"
     root = "https://kemono.party"
     directory_fmt = ("{category}", "{service}", "{user}")
-    filename_fmt = "{id}_{title}_{num:>02}_{filename}.{extension}"
+    filename_fmt = "{id}_{title}_{num:>02}_{filename[:180]}.{extension}"
     archive_fmt = "{service}_{user}_{id}_{num}"
     cookiedomain = ".kemono.party"
 
     def __init__(self, match):
         if match.group(1) == "coomer":
             self.category = "coomerparty"
-            self.root = "https://coomer.party"
             self.cookiedomain = ".coomer.party"
+        self.root = text.root_from_url(match.group(0))
         Extractor.__init__(self, match)
 
     def items(self):
@@ -42,14 +42,12 @@ class KemonopartyExtractor(Extractor):
             r'|/[0-9a-f]{2}/[0-9a-f]{2}/[0-9a-f]{64}\.[^"]+)').findall
         find_hash = re.compile("/[0-9a-f]{2}/[0-9a-f]{2}/([0-9a-f]{64})").match
         generators = self._build_file_generators(self.config("files"))
+        duplicates = self.config("duplicates")
         comments = self.config("comments")
         username = dms = None
 
-        # prevent files from coomer.party to be sent with gzip compression
-        if "coomer" in self.root:
-            headers = {"Accept-Encoding": "identity"}
-        else:
-            headers = None
+        # prevent files to be sent with gzip compression
+        headers = {"Accept-Encoding": "identity"}
 
         if self.config("metadata"):
             username = text.unescape(text.extract(
@@ -87,7 +85,7 @@ class KemonopartyExtractor(Extractor):
                 match = find_hash(url)
                 if match:
                     post["hash"] = hash = match.group(1)
-                    if hash in hashes:
+                    if hash in hashes and not duplicates:
                         self.log.debug("Skipping %s (duplicate)", url)
                         continue
                     hashes.add(hash)
@@ -103,7 +101,7 @@ class KemonopartyExtractor(Extractor):
                 elif url.startswith(self.root):
                     url = self.root + "/data" + url[20:]
 
-                text.nameext_from_url(file["name"], post)
+                text.nameext_from_url(file.get("name", url), post)
                 yield Message.Url, url, post
 
     def login(self):
@@ -180,7 +178,7 @@ class KemonopartyExtractor(Extractor):
         for dm in text.extract_iter(page, "<article", "</article>"):
             dms.append({
                 "body": text.unescape(text.extract(
-                    dm, '<div class="dm-card__content">', '</div>',
+                    dm, '<pre>', '</pre></section>',
                 )[0].strip()),
                 "date": text.extract(dm, 'datetime="', '"')[0],
             })
@@ -276,6 +274,11 @@ class KemonopartyPostExtractor(KemonopartyExtractor):
         ("https://kemono.party/patreon/user/4158582/post/32099982", {
             "count": 2,
         }),
+        # allow duplicates (#2440)
+        ("https://kemono.party/patreon/user/4158582/post/32099982", {
+            "options": (("duplicates", True),),
+            "count": 3,
+        }),
         # DMs (#2008)
         ("https://kemono.party/patreon/user/34134344/post/38129255", {
             "options": (("dms", True),),
@@ -294,6 +297,7 @@ class KemonopartyPostExtractor(KemonopartyExtractor):
         }),
         ("https://kemono.party/subscribestar/user/alcorart/post/184330"),
         ("https://www.kemono.party/subscribestar/user/alcorart/post/184330"),
+        ("https://beta.kemono.party/subscribestar/user/alcorart/post/184330"),
     )
 
     def __init__(self, match):
@@ -325,8 +329,9 @@ class KemonopartyDiscordExtractor(KemonopartyExtractor):
         }),
         (("https://kemono.party/discord"
           "/server/256559665620451329/channel/462437519519383555#"), {
-            "pattern": r"https://kemono\.party/data/attachments/discord"
-                       r"/256559665620451329/\d+/\d+/.+",
+            "pattern": r"https://kemono\.party/data/("
+                       r"e3/77/e377e3525164559484ace2e64425b0cec1db08.*\.png|"
+                       r"51/45/51453640a5e0a4d23fbf57fb85390f9c5ec154.*\.gif)",
             "count": ">= 2",
         }),
         # 'inline' files

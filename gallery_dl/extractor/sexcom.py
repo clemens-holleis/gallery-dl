@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2019-2020 Mike Fährmann
+# Copyright 2019-2022 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -87,7 +87,10 @@ class SexcomExtractor(Extractor):
                 data["extension"] = None
                 data["url"] = "ytdl:" + src
         else:
-            data["url"] = text.unescape(extr(' src="', '"').partition("?")[0])
+            data["_http_validate"] = _check_empty
+            url = text.unescape(extr(' src="', '"'))
+            data["url"] = url.partition("?")[0]
+            data["_fallback"] = (url,)
             text.nameext_from_url(data["url"], data)
 
         data["uploader"] = extr('itemprop="author">', '<')
@@ -167,6 +170,27 @@ class SexcomRelatedPinExtractor(SexcomPinExtractor):
         return self._pagination(url)
 
 
+class SexcomPinsExtractor(SexcomExtractor):
+    """Extractor for a user's pins on www.sex.com"""
+    subcategory = "pins"
+    directory_fmt = ("{category}", "{user}")
+    pattern = r"(?:https?://)?(?:www\.)?sex\.com/user/([^/?#]+)/pins/"
+    test = ("https://www.sex.com/user/sirjuan79/pins/", {
+        "count": ">= 15",
+    })
+
+    def __init__(self, match):
+        SexcomExtractor.__init__(self, match)
+        self.user = match.group(1)
+
+    def metadata(self):
+        return {"user": text.unquote(self.user)}
+
+    def pins(self):
+        url = "{}/user/{}/pins/".format(self.root, self.user)
+        return self._pagination(url)
+
+
 class SexcomBoardExtractor(SexcomExtractor):
     """Extractor for pins from a board on www.sex.com"""
     subcategory = "board"
@@ -197,7 +221,7 @@ class SexcomSearchExtractor(SexcomExtractor):
     subcategory = "search"
     directory_fmt = ("{category}", "search", "{search[query]}")
     pattern = (r"(?:https?://)?(?:www\.)?sex\.com/((?:"
-               r"(pic|gif|video)s/([^/?#]+)|search/(pic|gif|video)s"
+               r"(pic|gif|video)s/([^/?#]*)|search/(pic|gif|video)s"
                r")/?(?:\?([^#]+))?)")
     test = (
         ("https://www.sex.com/search/pics?query=ecchi", {
@@ -208,6 +232,7 @@ class SexcomSearchExtractor(SexcomExtractor):
             "range": "1-10",
             "count": 10,
         }),
+        ("https://www.sex.com/pics/?sort=popular&sub=all&page=1"),
     )
 
     def __init__(self, match):
@@ -225,3 +250,7 @@ class SexcomSearchExtractor(SexcomExtractor):
     def pins(self):
         url = "{}/{}".format(self.root, self.path)
         return self._pagination(url)
+
+
+def _check_empty(response):
+    return response.headers.get("content-length") != "0"

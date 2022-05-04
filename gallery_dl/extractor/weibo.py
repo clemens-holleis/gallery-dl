@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2019-2021 Mike Fährmann
+# Copyright 2019-2022 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -20,6 +20,7 @@ class WeiboExtractor(Extractor):
     filename_fmt = "{status[id]}_{num:>02}.{extension}"
     archive_fmt = "{status[id]}_{num}"
     root = "https://m.weibo.cn"
+    request_interval = (1.0, 2.0)
 
     def __init__(self, match):
         Extractor.__init__(self, match)
@@ -104,6 +105,10 @@ class WeiboUserExtractor(WeiboExtractor):
         ("https://m.weibo.cn/u/2314621010", {
             "range": "1-30",
         }),
+        # deleted (#2521)
+        ("https://weibo.com/u/7500315942", {
+            "count": 0,
+        }),
         ("https://m.weibo.cn/profile/2314621010"),
         ("https://m.weibo.cn/p/2304132314621010_-_WEIBO_SECOND_PROFILE_WEIBO"),
         ("https://www.weibo.com/p/1003062314621010/home"),
@@ -111,22 +116,49 @@ class WeiboUserExtractor(WeiboExtractor):
 
     def __init__(self, match):
         WeiboExtractor.__init__(self, match)
-        self.user_id = match.group(1)
+        self.user_id = match.group(1)[-10:]
 
     def statuses(self):
         url = self.root + "/api/container/getIndex"
-        params = {"page": 1, "containerid": "107603" + self.user_id[-10:]}
+        headers = {
+            "Accept": "application/json, text/plain, */*",
+            "X-Requested-With": "XMLHttpRequest",
+            "MWeibo-Pwa": "1",
+            "X-XSRF-TOKEN": None,
+            "Referer": "{}/u/{}".format(self.root, self.user_id),
+        }
+        params = {
+            "type": "uid",
+            "value": self.user_id,
+            "containerid": "107603" + self.user_id,
+        }
 
         while True:
-            data = self.request(url, params=params).json()
-            cards = data["data"]["cards"]
+            response = self.request(url, params=params, headers=headers)
+            headers["X-XSRF-TOKEN"] = response.cookies.get("XSRF-TOKEN")
 
-            if not cards:
-                return
-            for card in cards:
+            data = response.json()
+            if not data.get("ok"):
+                self.log.debug(response.content)
+                if "since_id" not in params:  # first iteration
+                    raise exception.StopExtraction(
+                        '"%s"', data.get("msg") or "unknown error")
+
+            data = data["data"]
+            for card in data["cards"]:
                 if "mblog" in card:
                     yield card["mblog"]
-            params["page"] += 1
+
+            info = data.get("cardlistInfo")
+            if not info:
+                # occasionally weibo returns an empty response
+                # repeating the same request usually/eventually yields
+                # the correct response.
+                continue
+
+            params["since_id"] = sid = info.get("since_id")
+            if not sid:
+                return
 
 
 class WeiboStatusExtractor(WeiboExtractor):

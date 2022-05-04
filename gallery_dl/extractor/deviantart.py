@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2015-2021 Mike Fährmann
+# Copyright 2015-2022 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -417,8 +417,8 @@ class DeviantartGalleryExtractor(DeviantartExtractor):
     pattern = BASE_PATTERN + r"/gallery(?:/all|/?\?catpath=)?/?$"
     test = (
         ("https://www.deviantart.com/shimoda7/gallery/", {
-            "pattern": r"https://(api-da\.wixmp\.com/_api/download/file"
-                       r"|images-wixmp-[^.]+.wixmp.com/f/.+/.+.jpg\?token=.+)",
+            "pattern": r"https://(images-)?wixmp-[^.]+\.wixmp\.com"
+                       r"/f/.+/.+\.(jpg|png)\?token=.+",
             "count": ">= 30",
             "keyword": {
                 "allows_comments": bool,
@@ -563,7 +563,8 @@ class DeviantartStashExtractor(DeviantartExtractor):
     pattern = r"(?:https?://)?sta\.sh/([a-z0-9]+)"
     test = (
         ("https://sta.sh/022c83odnaxc", {
-            "pattern": r"https://api-da\.wixmp\.com/_api/download/file",
+            "pattern": r"https://wixmp-[^.]+\.wixmp\.com"
+                       r"/f/.+/.+\.png\?token=.+",
             "content": "057eb2f2861f6c8a96876b13cca1a4b7a408c11f",
             "count": 1,
         }),
@@ -574,7 +575,8 @@ class DeviantartStashExtractor(DeviantartExtractor):
         }),
         # downloadable, but no "content" field (#307)
         ("https://sta.sh/024t4coz16mi", {
-            "pattern": r"https://api-da\.wixmp\.com/_api/download/file",
+            "pattern": r"https://wixmp-[^.]+\.wixmp\.com"
+                       r"/f/.+/.+\.rar\?token=.+",
             "count": 1,
         }),
         # mixed folders and images (#659)
@@ -863,8 +865,9 @@ class DeviantartDeviationExtractor(DeviantartExtractor):
         }),
         (("https://www.deviantart.com/myria-moon/art/Aime-Moi-261986576"), {
             "options": (("comments", True),),
-            "pattern": r"https://api-da\.wixmp\.com/_api/download/file",
             "keyword": {"comments": list},
+            "pattern": r"https://wixmp-[^.]+\.wixmp\.com"
+                       r"/f/.+/.+\.jpg\?token=.+",
         }),
         # wixmp URL rewrite
         (("https://www.deviantart.com/citizenfresh/art/Hverarond-789295466"), {
@@ -878,8 +881,8 @@ class DeviantartDeviationExtractor(DeviantartExtractor):
         }),
         # Flash animation with GIF preview (#1731)
         ("https://www.deviantart.com/yuumei/art/Flash-Comic-214724929", {
-            "pattern": r"https://api-da\.wixmp\.com/_api/download"
-                       r"/file\?downloadToken=.+",
+            "pattern": r"https://wixmp-[^.]+\.wixmp\.com"
+                       r"/f/.+/.+\.swf\?token=.+",
             "keyword": {
                 "filename": "flash_comic_tutorial_by_yuumei-d3juatd",
                 "extension": "swf",
@@ -1004,6 +1007,7 @@ class DeviantartOAuthAPI():
         self.extractor = extractor
         self.log = extractor.log
         self.headers = {"dA-minor-version": "20200519"}
+        self._warn_429 = True
 
         self.delay = extractor.config("wait-min", 0)
         self.delay_min = max(2, self.delay)
@@ -1014,6 +1018,7 @@ class DeviantartOAuthAPI():
 
         self.folders = extractor.config("folders", False)
         self.metadata = extractor.extra or extractor.config("metadata", False)
+        self.strategy = extractor.config("pagination")
 
         self.client_id = extractor.config("client-id")
         if self.client_id:
@@ -1260,6 +1265,16 @@ class DeviantartOAuthAPI():
                 if self.delay < 30:
                     self.delay += 1
                 self.log.warning("%s. Using %ds delay.", msg, self.delay)
+
+                if self._warn_429 and self.delay >= 3:
+                    self._warn_429 = False
+                    if self.client_id == self.CLIENT_ID:
+                        self.log.info(
+                            "Register your own OAuth application and use its "
+                            "credentials to prevent this error: "
+                            "https://github.com/mikf/gallery-dl/blob/master/do"
+                            "cs/configuration.rst#extractordeviantartclient-id"
+                            "--client-secret")
             else:
                 self.log.error(msg)
                 return data
@@ -1295,14 +1310,20 @@ class DeviantartOAuthAPI():
                     self._folders(results)
             yield from results
 
-            if not data["has_more"]:
+            if not data["has_more"] and (
+                    self.strategy != "manual" or not results):
                 return
+
             if "next_cursor" in data:
                 params["offset"] = None
                 params["cursor"] = data["next_cursor"]
-            else:
+            elif data["next_offset"] is not None:
                 params["offset"] = data["next_offset"]
                 params["cursor"] = None
+            else:
+                if params.get("offset") is None:
+                    return
+                params["offset"] = int(params["offset"]) + len(results)
 
     def _pagination_list(self, endpoint, params, key="results"):
         result = []

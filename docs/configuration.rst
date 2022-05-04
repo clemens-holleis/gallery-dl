@@ -356,7 +356,6 @@ Description
     Specifying a username and password is required for
 
     * ``nijie``
-    * ``seiga``
 
     and optional for
 
@@ -461,6 +460,21 @@ Description
 
     Note: All proxy URLs should include a scheme,
     otherwise ``http://`` is assumed.
+
+
+extractor.*.source-address
+--------------------------
+Type
+    * ``string``
+    * ``list`` with 1 ``string`` and 1 ``integer`` as elements
+Example
+    * ``"192.168.178.20"``
+    * ``["192.168.178.20", 8080]``
+Description
+    Client-side IP address to bind to.
+
+    | Can be either a simple ``string`` with just the local IP address
+    | or a ``list`` with IP and explicit port number as elements.
 
 
 extractor.*.user-agent
@@ -585,7 +599,9 @@ Description
     memory requirements are significantly lower when the
     amount of stored IDs gets reasonably large.
 
-    Note: archive paths support regular `format string`_ replacements,
+    Note: Archive files that do not already exist get generated automatically.
+
+    Note: Archive paths support regular `format string`_ replacements,
     but be aware that using external inputs for building local paths
     may pose a security risk.
 
@@ -597,9 +613,7 @@ Type
 Example
     ``"{id}_{offset}"``
 Description
-    An alternative `format string`__ to build archive IDs with.
-
-.. __: https://docs.python.org/3/library/string.html#format-string-syntax
+    An alternative `format string`_ to build archive IDs with.
 
 
 extractor.*.archive-prefix
@@ -1061,6 +1075,19 @@ Description
     everything else (archives, etc.).
 
 
+extractor.deviantart.pagination
+-------------------------------
+Type
+    ``string``
+Default
+    ``"api"``
+Description
+    Controls when to stop paginating over API results.
+
+    * ``"api"``: Trust the API and stop when ``has_more`` is ``false``.
+    * ``"manual"``: Disregard ``has_more`` and only stop when a batch of results is empty.
+
+
 extractor.deviantart.refresh-token
 ----------------------------------
 Type
@@ -1243,6 +1270,20 @@ Description
     You can use ``"all"`` instead of listing all values separately.
 
 
+extractor.furaffinity.layout
+----------------------------
+Type
+    ``string``
+Default
+    ``"auto"``
+Description
+    Selects which site layout to expect when parsing posts.
+
+    * ``"auto"``: Automatically differentiate between ``"old"`` and ``"new"``
+    * ``"old"``: Expect the *old* site layout
+    * ``"new"``: Expect the *new* site layout
+
+
 extractor.generic.enabled
 -------------------------
 Type
@@ -1273,6 +1314,28 @@ Description
     restrict it to only one possible format.
 
 
+extractor.gofile.api-token
+--------------------------
+Type
+    ``string``
+Default
+    ``null``
+Description
+    API token value found at the bottom of your `profile page <https://gofile.io/myProfile>`__.
+
+    If not set, a temporary guest token will be used.
+
+
+extractor.gofile.recursive
+--------------------------
+Type
+    ``bool``
+Default
+    ``false``
+Description
+    Recursively download files from subfolders.
+
+
 extractor.hentaifoundry.include
 -------------------------------
 Type
@@ -1291,15 +1354,19 @@ Description
     You can use ``"all"`` instead of listing all values separately.
 
 
-extractor.hitomi.metadata
--------------------------
+extractor.hitomi.format
+-----------------------
 Type
-    ``bool``
+    ``string``
 Default
-    ``false``
+    ``"webp"``
 Description
-    Try to extract
-    ``artist``, ``group``, ``parody``,  and ``characters`` metadata.
+    Selects which image format to download.
+
+    Available formats are ``"webp"`` and ``"avif"``.
+
+    ``"original"`` will try to download the original ``jpg`` or ``png`` versions,
+    but is most likely going to fail with ``403 Forbidden`` errors.
 
 
 extractor.imgur.mp4
@@ -1349,6 +1416,16 @@ Description
     You can use ``"all"`` instead of listing all values separately.
 
 
+extractor.instagram.previews
+----------------------------
+Type
+    ``bool``
+Default
+    ``false``
+Description
+    Download video previews.
+
+
 extractor.instagram.videos
 --------------------------
 Type
@@ -1367,6 +1444,19 @@ Default
     ``false``
 Description
     Extract ``comments`` metadata.
+
+
+extractor.kemonoparty.duplicates
+--------------------------------
+Type
+    ``bool``
+Default
+    ``false``
+Description
+    Controls how to handle duplicate files in a post.
+
+    * ``true``: Download duplicates
+    * ``false``: Ignore duplicates
 
 
 extractor.kemonoparty.dms
@@ -1558,7 +1648,7 @@ Description
 
 
 extractor.nijie.include
-----------------------------
+-----------------------
 Type
     ``string`` or ``list`` of ``strings``
 Default
@@ -1568,7 +1658,7 @@ Description
     when processing a user profile.
 
     Possible values are
-    ``"illustration"``, ``"doujin"``, ``"favorite"``.
+    ``"illustration"``, ``"doujin"``, ``"favorite"``, ``"nuita"``.
 
     You can use ``"all"`` instead of listing all values separately.
 
@@ -1618,12 +1708,12 @@ extractor.patreon.files
 Type
     ``list`` of ``strings``
 Default
-    ``["images", "attachments", "postfile", "content"]``
+    ``["images", "image_large", "attachments", "postfile", "content"]``
 Description
     Determines the type and order of files to be downloaded.
 
     Available types are
-    ``postfile``, ``images``, ``attachments``, and ``content``.
+    ``postfile``, ``images``, ``image_large``, ``attachments``, and ``content``.
 
 
 extractor.photobucket.subalbums
@@ -1686,18 +1776,28 @@ Description
     Download from video pins.
 
 
-extractor.pixiv.user.avatar
----------------------------
+extractor.pixiv.include
+-----------------------
 Type
-    ``bool``
+    * ``string``
+    * ``list`` of ``strings``
 Default
-    ``false``
+    ``"artworks"``
+Example
+    * ``"avatar,background,artworks"``
+    * ``["avatar", "background", "artworks"]``
 Description
-    Download user avatars.
+    A (comma-separated) list of subcategories to include
+    when processing a user profile.
+
+    Possible values are
+    ``"artworks"``, ``"avatar"``, ``"background"``, ``"favorite"``.
+
+    It is possible to use ``"all"`` instead of listing all values separately.
 
 
-extractor.pixiv.user.metadata
------------------------------
+extractor.pixiv.artworks.metadata
+---------------------------------
 Type
     ``bool``
 Default
@@ -1793,6 +1893,19 @@ Description
 
     * ``"stop``: Stop the current extractor run.
     * ``"wait``: Ask the user to solve the CAPTCHA and wait.
+
+
+extractor.readcomiconline.quality
+---------------------------------
+Type
+    ``string``
+Default
+    ``"auto"``
+Description
+    Sets the ``quality`` query parameter of issue pages. (``"lq"`` or ``"hq"``)
+
+    ``"auto"`` uses the quality parameter of the input URL
+    or ``"hq"`` if not present.
 
 
 extractor.reddit.comments
@@ -1936,6 +2049,16 @@ Description
     Download videos.
 
 
+extractor.skeb.sent-requests
+----------------------------
+Type
+    ``bool``
+Default
+    ``false``
+Description
+    Download sent requests.
+
+
 extractor.skeb.thumbnails
 -------------------------
 Type
@@ -2027,6 +2150,32 @@ Description
     You can use ``"all"`` instead of listing all types separately.
 
 
+extractor.twibooru.api-key
+--------------------------
+Type
+    ``string``
+Default
+    ``null``
+Description
+    Your `Twibooru API Key <https://twibooru.org/users/edit>`__,
+    to use your account's browsing settings and filters.
+
+
+extractor.twibooru.filter
+-------------------------
+Type
+    ``integer``
+Default
+    ``2`` (`Everything <https://twibooru.org/filters/2>`__ filter)
+Description
+    The content filter ID to use.
+
+    Setting an explicit filter ID overrides any default filters and can be used
+    to access 18+ content without `API Key <extractor.twibooru.api-key_>`__.
+
+    See `Filters <https://twibooru.org/filters>`__ for details.
+
+
 extractor.twitter.cards
 -----------------------
 Type
@@ -2065,6 +2214,16 @@ Description
 
     Known available sizes are
     ``4096x4096``, ``orig``, ``large``, ``medium``, and ``small``.
+
+
+extractor.twitter.syndication
+-----------------------------
+Type
+    ``bool``
+Default
+    ``false``
+Description
+    Retrieve age-restricted content using Twitter's syndication API.
 
 
 extractor.twitter.logout
@@ -2540,6 +2699,17 @@ Description
     Certificate validation during file downloads.
 
 
+downloader.*.proxy
+------------------
+Type
+    ``string`` or ``object``
+Default
+    `extractor.*.proxy`_
+Description
+    | Proxy server used for file downloads.
+    | Disable the use of a proxy by explicitly setting this option to ``null``.
+
+
 downloader.http.adjust-extensions
 ---------------------------------
 Type
@@ -2677,16 +2847,6 @@ Output Options
 ==============
 
 
-output.fallback
----------------
-Type
-    ``bool``
-Default
-    ``true``
-Description
-    Include fallback URLs in the output of ``-g/--get-urls``.
-
-
 output.mode
 -----------
 Type
@@ -2717,6 +2877,19 @@ Description
     with a display width greater than 1.
 
 
+output.colors
+-------------
+Type
+    ``object``
+Default
+    ``{"success": "1;32", "skip": "2"}``
+Description
+    Controls the `ANSI colors <https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797#colors--graphics-mode>`__
+    used with |mode: color|__ for successfully downloaded or skipped files.
+
+.. __: `output.mode`_
+
+
 output.skip
 -----------
 Type
@@ -2725,6 +2898,28 @@ Default
     ``true``
 Description
     Show skipped file downloads.
+
+
+output.fallback
+---------------
+Type
+    ``bool``
+Default
+    ``true``
+Description
+    Include fallback URLs in the output of ``-g/--get-urls``.
+
+
+output.private
+--------------
+Type
+    ``bool``
+Default
+    ``false``
+Description
+    Include private fields,
+    i.e. fields whose name starts with an underscore,
+    in the output of ``-K/--list-keywords`` and ``-j/--dump-json``.
 
 
 output.progress
@@ -3039,6 +3234,50 @@ Description
     Note: Only applies for ``"mode": "custom"``.
 
 
+metadata.archive
+----------------
+Type
+    |Path|_
+Description
+    File to store IDs of generated metadata files in,
+    similar to `extractor.*.archive`_.
+
+    ``archive-format`` and ``archive-prefix`` options,
+    akin to `extractor.*.archive-format`_ and `extractor.*.archive-prefix`_,
+    are supported as well.
+
+
+metadata.mtime
+--------------
+Type
+    ``bool``
+Default
+    ``false``
+Description
+    Set modification times of generated metadata files
+    according to the accompanying downloaded file.
+
+    Enabling this option will only have an effect
+    *if* there is actual ``mtime`` metadata available, that is
+
+    * after a file download (``"event": "file"`` (default), ``"event": "after"``)
+    * when running *after* an ``mtime`` post processes for the same `event <metadata.event_>`__
+
+    For example, a ``metadata`` post processor for ``"event": "post"`` will
+    *not* be able to set its file's modification time unless an ``mtime``
+    post processor with ``"event": "post"`` runs *before* it.
+
+
+mtime.event
+-----------
+Type
+    ``string``
+Default
+    ``"file"``
+Description
+    See `metadata.event`_
+
+
 mtime.key
 ---------
 Type
@@ -3079,11 +3318,15 @@ ugoira.ffmpeg-demuxer
 Type
     ``string``
 Default
-    ``image2``
+    ``auto``
 Description
-    FFmpeg demuxer to read input files with. Possible values are
-    "`image2 <https://ffmpeg.org/ffmpeg-formats.html#image2-1>`_" and
-    "`concat <https://ffmpeg.org/ffmpeg-formats.html#concat-1>`_".
+    FFmpeg demuxer to read and process input files with. Possible values are
+
+    * "`concat <https://ffmpeg.org/ffmpeg-formats.html#concat-1>`_" (inaccurate frame timecodes for non-uniform frame delays)
+    * "`image2 <https://ffmpeg.org/ffmpeg-formats.html#image2-1>`_" (accurate timecodes, requires nanosecond file timestamps, i.e. no Windows or macOS)
+    * "mkvmerge" (accurate timecodes, only WebM or MKV, requires `mkvmerge <ugoira.mkvmerge-location_>`__)
+
+    `"auto"` will select `mkvmerge` if available and fall back to `concat` otherwise.
 
 
 ugoira.ffmpeg-location
@@ -3094,6 +3337,17 @@ Default
     ``"ffmpeg"``
 Description
     Location of the ``ffmpeg`` (or ``avconv``) executable to use.
+
+
+ugoira.mkvmerge-location
+------------------------
+Type
+    |Path|_
+Default
+    ``"mkvmerge"``
+Description
+    Location of the ``mkvmerge`` executable for use with the
+    `mkvmerge demuxer <ugoira.ffmpeg-demuxer_>`__.
 
 
 ugoira.ffmpeg-output
@@ -3158,6 +3412,16 @@ Description
     adds ``["-vf", "crop=iw-mod(iw\\,2):ih-mod(ih\\,2)"]``
     to the list of FFmpeg command-line arguments
     to reduce an odd width/height by 1 pixel and make them even.
+
+
+ugoira.mtime
+------------
+Type
+    ``bool``
+Default
+    ``false``
+Description
+    Set modification times of generated ugoira aniomations.
 
 
 ugoira.repeat-last-frame
@@ -3252,6 +3516,18 @@ Description
 
     Set this option to ``null`` or an invalid path to disable
     this cache.
+
+
+signals-ignore
+--------------
+Type
+    ``list`` of ``strings``
+Example
+    ``["SIGTTOU", "SIGTTIN", "SIGTERM"]``
+Description
+    The list of signal names to ignore, i.e. set
+    `SIG_IGN <https://docs.python.org/3/library/signal.html#signal.SIG_IGN>`_
+    as signal handler for.
 
 
 pyopenssl
@@ -3561,6 +3837,7 @@ Description
 .. |Postprocessor Configuration| replace:: ``Postprocessor Configuration``
 .. |strptime| replace:: strftime() and strptime() Behavior
 .. |postprocessors| replace:: ``postprocessors``
+.. |mode: color| replace:: ``"mode": "color"``
 
 .. _base-directory: `extractor.*.base-directory`_
 .. _date-format: `extractor.*.date-format`_

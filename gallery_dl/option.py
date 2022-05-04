@@ -124,6 +124,11 @@ def build_parser():
         help="Use the specified proxy",
     )
     general.add_argument(
+        "--source-address",
+        dest="source-address", metavar="IP", action=ConfigAction,
+        help="Client-side IP address to bind to",
+    )
+    general.add_argument(
         "--clear-cache",
         dest="clear_cache", metavar="MODULE",
         help="Delete cached login sessions, cookies, etc. for MODULE "
@@ -394,6 +399,18 @@ def build_parser():
             "whitelist"     : ("pixiv", "danbooru"),
         },
         help="Convert Pixiv Ugoira to WebM in VP9 lossless mode",
+    )
+    postprocessor.add_argument(
+        "--ugoira-conv-copy",
+        dest="postprocessors", action="append_const", const={
+            "name"             : "ugoira",
+            "extension"        : "mkv",
+            "ffmpeg-args"      : ("-c:v", "copy"),
+            "ffmpeg-twopass"   : False,
+            "repeat-last-frame": False,
+            "whitelist"        : ("pixiv", "danbooru"),
+        },
+        help="Convert Pixiv Ugoira to MKV without re-encoding any frames",
     )
     postprocessor.add_argument(
         "--write-metadata",

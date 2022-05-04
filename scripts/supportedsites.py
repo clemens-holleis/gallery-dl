@@ -20,11 +20,13 @@ CATEGORY_MAP = {
     "archiveofsins"  : "Archive of Sins",
     "artstation"     : "ArtStation",
     "aryion"         : "Eka's Portal",
+    "atfbooru"       : "ATFBooru",
     "b4k"            : "arch.b4k.co",
     "baraag"         : "baraag",
     "bbc"            : "BBC",
     "bcy"            : "半次元",
     "comicvine"      : "Comic Vine",
+    "coomerparty"    : "Coomer",
     "deviantart"     : "DeviantArt",
     "drawfriends"    : "Draw Friends",
     "dynastyscans"   : "Dynasty Reader",
@@ -56,7 +58,9 @@ CATEGORY_MAP = {
     "imgur"          : "imgur",
     "joyreactor"     : "JoyReactor",
     "kabeuchi"       : "かべうち",
+    "kemonoparty"    : "Kemono",
     "kireicake"      : "Kirei Cake",
+    "kissgoddess"    : "Kiss Goddess",
     "lineblog"       : "LINE BLOG",
     "livedoor"       : "livedoor Blog",
     "omgmiamiswimwear": "Omg Miami Swimwear",
@@ -68,6 +72,7 @@ CATEGORY_MAP = {
     "mangapark"      : "MangaPark",
     "mangasee"       : "MangaSee",
     "mastodon.social": "mastodon.social",
+    "mememuseum"     : "meme.museum",
     "myhentaigallery": "My Hentai Gallery",
     "myportfolio"    : "Adobe Portfolio",
     "naverwebtoon"   : "NaverWebtoon",
@@ -110,6 +115,7 @@ CATEGORY_MAP = {
     "vk"             : "VK",
     "vsco"           : "VSCO",
     "wakarimasen"    : "Wakarimasen Archive",
+    "wallpapercave"  : "Wallpaper Cave",
     "webtoons"       : "Webtoon",
     "wikiart"        : "WikiArt.org",
     "xhamster"       : "xHamster",
@@ -119,12 +125,15 @@ CATEGORY_MAP = {
 }
 
 SUBCATEGORY_MAP = {
+    "art"    : "Art",
+    "audio"  : "Audio",
     "doujin" : "Doujin",
     "gallery": "Galleries",
     "image"  : "individual Images",
     "index"  : "Site Index",
     "issue"  : "Comic Issues",
     "manga"  : "Manga",
+    "media"  : "Media Files",
     "popular": "Popular Images",
     "recent" : "Recent Images",
     "search" : "Search Results",
@@ -138,6 +147,16 @@ SUBCATEGORY_MAP = {
 
     "artstation": {
         "artwork": "Artwork Listings",
+    },
+    "atfbooru": {
+        "favorite": "",
+    },
+    "coomerparty": {
+        "discord"       : "",
+        "discord-server": "",
+    },
+    "danbooru": {
+        "favorite": "",
     },
     "desktopography": {
         "site": "",
@@ -164,14 +183,13 @@ SUBCATEGORY_MAP = {
     "mangadex": {
         "feed" : "Followed Feed",
     },
-    "newgrounds": {
-        "art"  : "Art",
-        "audio": "Audio",
-        "media": "Media Files",
+    "nijie": {
+        "nuita" : "Nuita History",
     },
     "pinterest": {
         "board": "",
         "pinit": "pin.it Links",
+        "created": "Created Pins",
     },
     "pixiv": {
         "me"  : "pixiv.me Links",
@@ -181,6 +199,9 @@ SUBCATEGORY_MAP = {
     },
     "sankaku": {
         "books": "Book Searches",
+    },
+    "sexcom": {
+        "pins": "User Pins",
     },
     "smugmug": {
         "path": "Images from Users and Folders",
@@ -192,6 +213,9 @@ SUBCATEGORY_MAP = {
     },
     "wallhaven": {
         "collections": "",
+    },
+    "wallpapercave": {
+        "image": "individual Images, Search Results",
     },
     "weasyl": {
         "journals"   : "",
@@ -222,7 +246,9 @@ _APIKEY_WY = \
 
 AUTH_MAP = {
     "aryion"         : "Supported",
+    "atfbooru"       : "Supported",
     "baraag"         : _OAUTH,
+    "coomerparty"    : "Supported",
     "danbooru"       : "Supported",
     "derpibooru"     : _APIKEY_DB,
     "deviantart"     : _OAUTH,
@@ -251,7 +277,7 @@ AUTH_MAP = {
     "ponybooru"      : "API Key",
     "reddit"         : _OAUTH,
     "sankaku"        : "Supported",
-    "seiga"          : "Required",
+    "seiga"          : _COOKIES,
     "seisoparty"     : "Supported",
     "smugmug"        : _OAUTH,
     "subscribestar"  : "Supported",
@@ -346,6 +372,14 @@ def build_extractor_list():
             for category, root in extr.instances:
                 base[category].append(extr.subcategory)
                 if category not in domains:
+                    if not root:
+                        # use domain from first matching test
+                        for url, _ in extr._get_tests():
+                            if extr.from_url(url).category == category:
+                                root = url[:url.index("/", 8)]
+                                break
+                        else:
+                            continue
                     domains[category] = root + "/"
 
     # sort subcategory lists
@@ -356,6 +390,10 @@ def build_extractor_list():
     # add e-hentai.org
     default["e-hentai"] = default["exhentai"]
     domains["e-hentai"] = domains["exhentai"].replace("x", "-")
+
+    # add coomer.party
+    default["coomerparty"] = default["kemonoparty"]
+    domains["coomerparty"] = domains["kemonoparty"].replace("kemono", "coomer")
 
     # add hentai-cosplays sister sites (hentai-img, porn-images-xxx)
     default["hentaiimg"] = default["hentaicosplays"]
@@ -399,8 +437,10 @@ def generate_output(columns, categories, domains):
             name = BASE_MAP.get(name) or (name.capitalize() + " Instances")
             append('\n<tr>\n    <td colspan="4"><strong>' +
                    name + '</strong></td>\n</tr>')
+            clist = base.items()
+        else:
+            clist = sorted(base.items(), key=category_key)
 
-        clist = sorted(base.items(), key=category_key)
         for category, subcategories in clist:
             append("<tr>")
             for column in columns:
