@@ -399,16 +399,19 @@ Description
 extractor.*.cookies
 -------------------
 Type
-    |Path|_ or ``object``
+    |Path|_ or ``object`` or ``list``
 Default
     ``null``
 Description
-    Source to read additional cookies from. Either as
+    Source to read additional cookies from. This can be
 
-    * the |Path|_ to a Mozilla/Netscape format cookies.txt file or
-    * a JSON ``object`` specifying cookies as a name-to-value mapping
+    * The |Path|_ to a Mozilla/Netscape format cookies.txt file
 
-      Example:
+      .. code:: json
+
+        "~/.local/share/cookies-instagram-com.txt"
+
+    * An ``object`` specifying cookies as name-value pairs
 
       .. code:: json
 
@@ -417,6 +420,17 @@ Description
             "sessionid"  : "14313336321%3AsabDFvuASDnlpb%3A31",
             "isAdult"    : "1"
         }
+
+    * A ``list`` with up to 3 entries specifying a browser profile.
+
+      * The first entry is the browser name
+      * The optional second entry is a profile name or an absolote path to a profile directory
+      * The optional third entry is the keyring to retrieve passwords for decrypting cookies from
+
+      .. code:: json
+
+        ["firefox"]
+        ["chromium", "Private", "kwallet"]
 
 
 extractor.*.cookies-update
@@ -861,6 +875,21 @@ Default
     ``true``
 Description
     Download embedded videos hosted on https://www.blogger.com/
+
+
+extractor.cyberdrop.domain
+--------------------------
+Type
+    ``string``
+Default
+    ``"auto"``
+Example
+    ``"cyberdrop.to"``
+Description
+    Specifies the domain used by ``cyberdrop`` regardless of input URL.
+
+    Setting this option to ``"auto"``
+    uses the same domain as a given input URL.
 
 
 extractor.danbooru.external
@@ -1515,6 +1544,20 @@ Description
 
     If the selected format is not available,
     the first in the list gets chosen (usually `mp3`).
+
+
+extractor.lolisafe.domain
+-------------------------
+Type
+    ``string``
+Default
+    ``"auto"``
+Description
+    Specifies the domain used by a ``lolisafe`` extractor
+    regardless of input URL.
+
+    Setting this option to ``"auto"``
+    uses the same domain as a given input URL.
 
 
 extractor.luscious.gif
